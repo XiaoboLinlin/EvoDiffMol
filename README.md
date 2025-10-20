@@ -284,48 +284,7 @@ Contributions are welcome! Please:
 
 This project is licensed under the MIT License - see LICENSE file for details.
 
-## 📚 Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@article{huang2022mdm,
-  title={MDM: Molecular Diffusion Model for 3D Molecule Generation},
-  author={Huang, Lei and Zhang, Hengtong and Xu, Tingyang and Wong, Ka-Chun},
-  journal={arXiv preprint arXiv:2209.05710},
-  year={2022}
-}
-```
-
-## 🔗 Related Work
-
-- **PMDM**: Protein-conditioned molecular generation - [GitHub](https://github.com/Layne-Huang/PMDM) (Nature Communications)
-
-## ❓ Troubleshooting
-
-### Common Issues
-
-**Import Error:**
-```bash
-# Make sure package is installed
-pip install -e .
-```
-
-**CUDA Out of Memory:**
-```bash
-# Reduce batch_size in examples or configs
-```
-
-**Slow Dataset Loading:**
-```bash
-# Use validation split for testing
-dataset = General3D('moses', split='valid', remove_h=True)
-```
-
-## 📧 Contact
-
-For questions and issues, please open a GitHub issue or contact the authors.
-
 ---
 
-**Happy molecule generation!** 🧬✨
+**EvoDiffMol** - Evolutionary Diffusion Framework for 3D Molecular Design 🧬✨
+
