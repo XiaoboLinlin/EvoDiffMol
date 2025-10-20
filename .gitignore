@@ -71,13 +71,15 @@ dist/
 *.xlsx
 *.xls
 
-# Image files (plots, etc.)
+# Image files (plots, etc.) - but keep github_figures
 *.png
 *.jpg
 *.jpeg
 *.gif
 *.bmp
 *.tiff
+# Exception: keep github_figures for README
+!github_figures/*.png
 
 # Large binary and data files
 *.bin
