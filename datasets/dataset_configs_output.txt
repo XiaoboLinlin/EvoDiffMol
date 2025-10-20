@@ -1,0 +1,93 @@
+🧬 Dataset Configuration Generator
+============================================================
+📊 Analyzing guacamol_with_h...
+📊 Analyzing guacamol_without_h...
+📊 Analyzing moses_with_h...
+📊 Analyzing moses_without_h...
+
+============================================================
+📝 Generated Configuration Dictionaries
+============================================================
+
+# Add these to configs/datasets_config.py:
+
+guacamol_with_h = {
+    'name': 'guacamol',
+    'atom_index': {1: 0, 6: 1, 7: 2, 8: 3, 9: 4, 16: 5, 17: 6, 35: 7},
+    'atom_encoder': {'H': 0, 'C': 1, 'N': 2, 'O': 3, 'F': 4, 'S': 5, 'Cl': 6, 'Br': 7},
+    'atom_decoder': ['H', 'C', 'N', 'O', 'F', 'S', 'Cl', 'Br'],
+    'n_nodes': {
+        17: 1, 21: 2, 22: 1, 24: 1, 25: 4, 26: 4, 27: 1, 29: 1, 30: 3, 31: 2,
+        32: 7, 33: 4, 34: 4, 35: 5, 36: 5, 37: 4, 38: 6, 39: 3, 40: 5, 41: 5,
+        42: 8, 43: 8, 44: 3, 45: 9, 46: 8, 47: 3, 48: 4, 49: 8, 50: 6, 51: 11,
+        52: 5, 53: 7, 54: 6, 55: 5, 56: 5, 57: 5, 58: 6, 59: 1, 60: 4, 61: 6,
+        62: 3, 63: 6, 64: 3, 65: 3, 66: 4, 67: 2, 68: 2, 69: 4, 70: 3, 71: 2,
+        72: 3, 73: 2, 75: 2, 76: 3, 78: 2, 80: 2, 81: 2, 83: 2, 84: 1, 86: 1,
+        88: 2, 89: 1
+    },
+    'max_n_nodes': 89,
+    'atom_types': {0: 5511, 1: 5033, 2: 738, 3: 675, 4: 84, 5: 63, 6: 58, 7: 11},
+    'with_h': True
+}
+
+guacamol_without_h = {
+    'name': 'guacamol',
+    'atom_index': {6: 0, 7: 1, 8: 2, 9: 3, 16: 4, 17: 5, 35: 6},
+    'atom_encoder': {'C': 0, 'N': 1, 'O': 2, 'F': 3, 'S': 4, 'Cl': 5, 'Br': 6},
+    'atom_decoder': ['C', 'N', 'O', 'F', 'S', 'Cl', 'Br'],
+    'n_nodes': {
+        6: 1, 13: 2, 14: 1, 15: 2, 16: 4, 17: 10, 18: 4, 19: 10, 20: 12, 21: 9,
+        22: 12, 23: 7, 24: 17, 25: 9, 26: 13, 27: 14, 28: 15, 29: 11, 30: 7, 31: 15,
+        32: 8, 33: 3, 34: 4, 35: 8, 36: 5, 37: 8, 38: 6, 39: 11, 40: 1, 41: 2,
+        42: 1, 43: 4, 45: 1, 46: 1, 47: 2, 48: 1
+    },
+    'max_n_nodes': 48,
+    'atom_types': {0: 5033, 1: 738, 2: 675, 3: 84, 4: 63, 5: 58, 6: 11},
+    'with_h': False
+}
+
+moses_with_h = {
+    'name': 'moses',
+    'atom_index': {1: 0, 6: 1, 7: 2, 8: 3, 9: 4, 16: 5, 17: 6, 35: 7},
+    'atom_encoder': {'H': 0, 'C': 1, 'N': 2, 'O': 3, 'F': 4, 'S': 5, 'Cl': 6, 'Br': 7},
+    'atom_decoder': ['H', 'C', 'N', 'O', 'F', 'S', 'Cl', 'Br'],
+    'n_nodes': {
+        8: 5, 10: 1, 11: 10, 12: 7, 13: 33, 14: 58, 15: 59, 16: 116, 17: 212, 18: 315,
+        19: 346, 20: 648, 21: 929, 22: 1551, 23: 2443, 24: 3630, 25: 5324, 26: 8544, 27: 12162, 28: 16974,
+        29: 24220, 30: 32667, 31: 43258, 32: 56700, 33: 67706, 34: 81727, 35: 96115, 36: 107583, 37: 116696, 38: 126320,
+        39: 128459, 40: 132793, 41: 129727, 42: 123017, 43: 115486, 44: 105041, 45: 93371, 46: 77496, 47: 63185, 48: 47416,
+        49: 39396, 50: 25649, 51: 17885, 52: 12072, 53: 8642, 54: 5333, 55: 2689, 56: 1847, 57: 643, 58: 281,
+        59: 106, 60: 53, 61: 11, 62: 2
+    },
+    'max_n_nodes': 62,
+    'atom_types': {0: 34845664, 1: 30315974, 2: 5733675, 3: 4345884, 4: 596720, 5: 686851, 6: 227134, 7: 62955},
+    'with_h': True
+}
+
+moses_without_h = {
+    'name': 'moses',
+    'atom_index': {6: 0, 7: 1, 8: 2, 9: 3, 16: 4, 17: 5, 35: 6},
+    'atom_encoder': {'C': 0, 'N': 1, 'O': 2, 'F': 3, 'S': 4, 'Cl': 5, 'Br': 6},
+    'atom_decoder': ['C', 'N', 'O', 'F', 'S', 'Cl', 'Br'],
+    'n_nodes': {
+        8: 6, 9: 36, 10: 97, 11: 110, 12: 241, 13: 869, 14: 4364, 15: 6260, 16: 12997, 17: 44348,
+        18: 104810, 19: 212971, 20: 236947, 21: 248063, 22: 280079, 23: 291699, 24: 278331, 25: 179473, 26: 35254, 27: 4
+    },
+    'max_n_nodes': 27,
+    'atom_types': {0: 30315974, 1: 5733675, 2: 4345884, 3: 596720, 4: 686851, 5: 227134, 6: 62955},
+    'with_h': False
+}
+
+============================================================
+✅ Configuration generation complete!
+
+📋 Next steps:
+1. Copy the above dictionaries to configs/datasets_config.py
+2. Add imports if needed (they should already be compatible)
+3. Test with your training scripts
+
+💡 Note: This analysis was based on the test samples (~300 molecules per dataset).
+   To get statistics for the FULL datasets, first process the complete datasets:
+   - cd guacamol && python process_datasets.py (without --test flag)
+   - cd moses && python process_datasets.py (without --test flag)
+   Then re-run this script for production-quality configurations.
