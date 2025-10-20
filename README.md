@@ -1,6 +1,8 @@
 # EvoDiffMol: Evolutionary Diffusion Framework for 3D Molecular Design with Optimized Properties
 
-<img src="./github_figures/workflow.png" width="600">
+<p align="center">
+  <img src="./github_figures/workflow.png" width="600">
+</p>
 
 **EvoDiffMol** is a Python package for generating 3D molecules with optimized properties using **genetic algorithms** and **diffusion models**. It combines the power of:
 - **Diffusion Models** for high-quality 3D molecular structure generation
@@ -8,8 +10,6 @@
 - **Scaffold Constraints** for drug discovery applications
 
 Generate drug-like molecules optimized for multiple properties (QED, LogP, SA, TPSA) simultaneously!
-
-[[Paper](https://arxiv.org/abs/2209.05710)]
 
 ## 📋 Table of Contents
 - [Features](#-features)
