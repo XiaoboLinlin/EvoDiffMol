@@ -77,6 +77,13 @@ play_try/
 COMPARISON.md
 comprehensive_test.log
 
+# Local documentation files (not for GitHub)
+GIT_COMMANDS.md
+GITHUB_PACKAGE_STRUCTURE.md
+GITHUB_UPDATE_SUMMARY.md
+FINAL_GITHUB_CHECKLIST.md
+COMPLETE_GIT_CLEANUP.md
+
 # ==============================================================================
 # TESTS - KEEP ONLY CORE API TESTS
 # ==============================================================================
