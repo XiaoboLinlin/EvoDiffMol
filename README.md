@@ -204,17 +204,3 @@ If you use EvoDiffMol in your research, please cite:
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-## 🔗 Links
-
-- 🤗 **Checkpoint:** [scofieldlinlin/EvoDiffMol](https://huggingface.co/scofieldlinlin/EvoDiffMol)
-- 📦 **GitHub:** [YOUR_USERNAME/EvoDiffMol](https://github.com/YOUR_USERNAME/EvoDiffMol)
-- 📧 **Contact:** scofieldlinlin@github
-
----
-
-## 🙏 Acknowledgments
-
-Built on top of diffusion models for molecular generation. Special thanks to the open-source community for tools like RDKit, PyTorch, and Therapeutics Data Commons (TDC).
