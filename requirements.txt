@@ -3,6 +3,7 @@ torch>=1.10.0
 torch-geometric>=2.0.0
 # Note: torch-scatter, torch-sparse, torch-cluster are installed separately
 # in install_pip_only.sh with --no-build-isolation flag
+torchvision>=0.11.0  # For image utilities
 
 # Scientific Computing
 numpy>=1.21.0
