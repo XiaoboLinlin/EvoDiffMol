@@ -98,16 +98,12 @@ echo "Installing EvoDiffMol package and dependencies..."
 echo "This may take several minutes..."
 echo ""
 
-# Install the package
-echo "Installing PyTorch first..."
-pip install torch>=1.10.0
+# Install torch first (required for torch-scatter build)
+echo "Installing PyTorch..."
+pip install "torch>=1.10.0"
 
 echo ""
-echo "Installing PyTorch Geometric and extensions..."
-pip install torch-geometric torch-scatter torch-sparse torch-cluster
-
-echo ""
-echo "Installing EvoDiffMol package..."
+echo "Installing EvoDiffMol and remaining dependencies..."
 pip install -e .
 
 echo ""
