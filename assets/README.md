@@ -32,14 +32,14 @@ python assets/download_checkpoint.py
 **Option B: Manual Download**
 ```bash
 # Download from Hugging Face
-wget https://huggingface.co/YOUR_USERNAME/EvoDiffMol/resolve/main/moses_without_h_80.pt \
+wget https://huggingface.co/scofieldlinlin/EvoDiffMol/resolve/main/moses_without_h_80.pt \
      -O assets/checkpoints/moses_without_h_80.pt
 ```
 
 **Option C: Using huggingface-cli**
 ```bash
 pip install huggingface-hub
-huggingface-cli download YOUR_USERNAME/EvoDiffMol moses_without_h_80.pt \
+huggingface-cli download scofieldlinlin/EvoDiffMol moses_without_h_80.pt \
     --local-dir assets/checkpoints
 ```
 
@@ -80,10 +80,11 @@ print(f"Generated {len(molecules)} optimized molecules!")
 
 **Model:** MOSES without H (trained on MOSES dataset with hydrogens removed)
 - **File:** `moses_without_h_80.pt`
-- **Size:** ~XXX MB (will be specified after upload)
+- **Size:** 321 MB
 - **Training:** 80 epochs on MOSES dataset
 - **Properties:** Supports LogP, QED, SA, TPSA, and 40+ ADMET properties
 - **License:** MIT
+- **Download:** https://huggingface.co/scofieldlinlin/EvoDiffMol
 
 ---
 

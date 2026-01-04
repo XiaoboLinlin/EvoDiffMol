@@ -19,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 # Configuration
-REPO_ID = "YOUR_USERNAME/EvoDiffMol"  # TODO: Update with your Hugging Face repo
+REPO_ID = "scofieldlinlin/EvoDiffMol"
 CHECKPOINT_FILENAME = "moses_without_h_80.pt"
 LOCAL_DIR = Path(__file__).parent / "checkpoints"
 
