@@ -25,15 +25,15 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch>=1.10.0",
+    "torch==2.5.1",
+    "torchvision==0.20.1",
     "torch-geometric>=2.0.0",
-    "torch-scatter",
-    "torch-sparse",
-    "torch-cluster",
+    # Note: torch-scatter, torch-sparse, torch-cluster installed separately via install script
     "rdkit>=2022.9.1",
     "numpy>=1.21.0",
     "pandas>=1.3.0",
     "scipy>=1.7.0",
+    "einops>=0.6.0",
     "pyyaml>=5.4.0",
     "easydict>=1.9",
     "tqdm>=4.62.0",
