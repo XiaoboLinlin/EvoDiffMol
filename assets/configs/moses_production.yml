@@ -1,0 +1,59 @@
+genetic_algorithm:
+  elite_size: 250
+  batch_size: 128
+  ga_epochs: 15
+  adaptive: true
+  train_epochs_per_ga: 1
+  use_harmonic_mean: true
+  checkpoint_freq: -1
+  num_scale_factor: 2
+
+
+scaffold:
+  fine_tune_epochs: 40  # Number of epochs for scaffold fine-tuning
+  scale_factor: 2.5  # Generate 2.5x the elite population size for scaffold-based molecule generation
+  positioning_strategy: plane_through_origin  # Scaffold positioning strategy: plane_through_origin, free_position, sphere_constraint, center_only
+
+
+sampling_parameters:
+  n_steps: 1000
+  step_lr: 1.0e-6
+  w_global_pos: 1.0
+  w_global_node: 4.0
+  w_local_pos: 1.0
+  w_local_node: 5.0
+  global_start_sigma: !!float 'inf'
+  clip: 1000.0
+  clip_local: null
+  sampling_type: "generalized"
+  eta: 1.0
+
+scoring_operator:
+  scoring_names:
+    - logp
+    - qed
+    - sa
+    - tpsa
+  
+  selection_names:
+    - logp
+    - qed
+    - sa
+    - tpsa
+  
+  property_config:
+    logp:
+      range: [-4.5, 6]
+      preferred_range: [1, 3]
+    qed:
+      range: [0, 1]
+      higher_is_better: true
+    sa:
+      range: [1, 10]
+      higher_is_better: false
+    tpsa:
+      range: [0, 188]
+      preferred_value: 75  # Optimized for MOSES dataset (slightly lower than QM40)
+
+output_config:
+  output_dir: ./ga_output/moses_production

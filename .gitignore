@@ -83,6 +83,7 @@ GITHUB_PACKAGE_STRUCTURE.md
 GITHUB_UPDATE_SUMMARY.md
 FINAL_GITHUB_CHECKLIST.md
 COMPLETE_GIT_CLEANUP.md
+HUGGINGFACE_UPLOAD.md
 
 # ==============================================================================
 # TESTS - KEEP ONLY CORE API TESTS
@@ -147,6 +148,9 @@ dist/
 *.pth
 *.ckpt
 *.checkpoint
+
+# Exception: Keep .gitkeep in assets/checkpoints
+!assets/checkpoints/.gitkeep
 
 # Data files
 *.mol2
