@@ -44,9 +44,28 @@ PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
 if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
-    echo -e "${RED}Error: Python 3.11+ is required. Found: $PYTHON_VERSION${NC}"
-    echo "Please install Python 3.11 or higher."
-    exit 1
+    echo -e "${YELLOW}Warning: Python $PYTHON_VERSION found, but Python 3.11+ is required${NC}"
+    
+    # Check if conda/miniconda Python is available
+    if [ -f "$HOME/miniconda3/bin/python" ]; then
+        CONDA_VERSION=$($HOME/miniconda3/bin/python --version 2>&1 | awk '{print $2}')
+        CONDA_MAJOR=$(echo $CONDA_VERSION | cut -d. -f1)
+        CONDA_MINOR=$(echo $CONDA_VERSION | cut -d. -f2)
+        if [ "$CONDA_MAJOR" -ge 3 ] && [ "$CONDA_MINOR" -ge 11 ]; then
+            echo -e "${GREEN}✓${NC} Found miniconda Python $CONDA_VERSION"
+            PYTHON_CMD="$HOME/miniconda3/bin/python"
+        fi
+    fi
+    
+    # Final check
+    PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
+    PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
+    PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
+    if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+        echo -e "${RED}Error: Python 3.11+ is required. Found: $PYTHON_VERSION${NC}"
+        echo "Please install Python 3.11 or higher."
+        exit 1
+    fi
 fi
 
 echo "Using Python: $PYTHON_CMD ($PYTHON_VERSION)"
