@@ -1,32 +1,109 @@
 # =============================================================================
-# Core project structure to keep:
-# - evodiffmol/ (package)
-# - examples/ (usage examples)
-# - configs/ (configuration files)
-# - datasets/qm9/ (dataset utilities - code only)
-# - ga_config/ (GA configuration files)
-# - tests/ (pytest tests)
-# - Root files: train.py, setup.py, requirements.txt, LICENSE, README.md
+# EvoDiffMol Package - Core API Only
+# =============================================================================
+# This is a RESEARCH PACKAGE focused on the MoleculeGenerator API.
+# Only core package files needed for: gen.optimize(target_properties={...})
+#
+# KEEP:
+# - evodiffmol/ (package with MoleculeGenerator API)
+# - configs/ (model configs - required by generator)
+# - ga_config/ (GA configs - required by generator)
+# - datasets/ (Python utilities only, not data)
+# - tests/test_admet_opt.py, tests/conftest.py (core API tests)
+# - README.md, LICENSE, requirements.txt, pyproject.toml
+#
+# EXCLUDE:
+# - All manuscript/research files (results, figures, examples, docs)
+# - All old training scripts (train.py, train_genetic.py, etc.)
+# - All research tests (keep only test_admet_opt.py for API verification)
 # =============================================================================
 
-# Root scripts to ignore (keep only train.py, setup.py, requirements.txt)
-eval.py
-test_eval.py
+# ==============================================================================
+# OLD TRAINING & RESEARCH SCRIPTS (NOT NEEDED FOR CORE API)
+# ==============================================================================
+# Users only need: from evodiffmol import MoleculeGenerator; gen.optimize(...)
+# All these old scripts are replaced by the MoleculeGenerator API
+
+# Old training scripts
+train.py
 train_genetic.py
 train_qm9_condition.py
-ga_train_moses_*.py
+
+# Old evaluation scripts
+eval.py
+test_eval.py
 moses_evaluate.py
 mose_qed_evaluate.py
+
+# Old GA training scripts (subprocess-based, 686 lines)
+ga_train_moses_*.py
+example_unnormalized_usage.py
+
+# Shell scripts
 run_training_*.sh
 *.sh
 
-# Analysis and research folders (not needed for package)
-analysis/
-evaluation/
-benchmark/
-experiments/
+# ==============================================================================
+# MANUSCRIPT & RESEARCH FILES (NOT PART OF CORE PACKAGE)
+# ==============================================================================
+# These are research artifacts, not needed for the MoleculeGenerator API
 
-# Large output directories
+# Manuscript results and analysis
+manuscript_results/
+manuscript_analysis/
+analysis/
+revision_plan/
+
+# Documentation (manuscript-specific)
+docs/
+latex/
+
+# Examples (research examples, not API demos)
+examples/
+
+# Figures
+github_figures/
+workflow_diagrams/
+
+# Manuscript experiment script
+run_manuscript_experiments.py
+
+# Archive folders
+zarchive/
+moved_folder/
+play_try/
+
+# Misc root-level files to exclude
+COMPARISON.md
+comprehensive_test.log
+
+# ==============================================================================
+# TESTS - KEEP ONLY CORE API TESTS
+# ==============================================================================
+# Only keep test_admet_opt.py and conftest.py for API verification
+# Exclude all other tests (research-specific)
+
+tests/test_optimization.py
+tests/test_scaffold.py
+tests/test_3d_structure.py
+tests/test_formats.py
+tests/test_api_basic.py
+tests/test_admet_ranges.py
+tests/quick_test.py
+tests/README.md
+
+# Test output directories
+tests/test_admet_results/
+tests/test_admet_comprehensive_results/
+tests/test_qed_single_property/
+tests/output/
+tests/*.txt
+tests/test_*/
+test_results/
+
+# ==============================================================================
+# LARGE OUTPUT DIRECTORIES
+# ==============================================================================
 ga_output*/
 logs*/
 log*/
@@ -35,14 +112,11 @@ results*/
 output*/
 outputs*/
 
-# Test directories and temporary folders
-test_*/
-tests_*/
-workflow_diagrams/
-play_try/
-moved_folder/
-latex/
-data/
+# ==============================================================================
+# BUILD & PACKAGE FILES
+# ==============================================================================
+# Use pyproject.toml instead of setup.py
+setup.py
 
 # Python cache and compiled files
 __pycache__/
@@ -58,6 +132,9 @@ dist/
 *.egg-info/
 .eggs/
 
+# ==============================================================================
+# DATA FILES & CHECKPOINTS
+# ==============================================================================
 # Large model files and checkpoints
 *.pt
 *.pth
@@ -71,16 +148,6 @@ dist/
 *.xlsx
 *.xls
 
-# Image files (plots, etc.) - but keep github_figures
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.bmp
-*.tiff
-# Exception: keep github_figures for README
-!github_figures/*.png
-
 # Large binary and data files
 *.bin
 *.pkl
@@ -90,6 +157,15 @@ dist/
 *.npz
 *.npy
 *.dat
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.pdf
 
 # Dataset directories (too large for git - keep Python utilities only)
 datasets/*/processed/
@@ -103,16 +179,24 @@ datasets/guacamol/
 datasets/moses/
 datasets/.temp_scaffolds/
 datasets/scaffold_examples/
-# Keep only the Python utilities and READMEs at the root level
+datasets/subset/
+datasets/moses_noh_scaffold*/
+datasets/dataset_configs_output.txt
+# Keep only the Python utilities at the root level
 !datasets/*.py
 !datasets/*.md
 
-# Config files - exclude QM9/QM40 specific configs
+# ==============================================================================
+# CONFIGS - KEEP ONLY GENERAL CONFIGS (EXCLUDE QM9/QM40 SPECIFIC)
+# ==============================================================================
 configs/qm9*.yml
 configs/qm40*.yml
 configs/geom*.yml
+configs/count.py
 
-# Temporary and cache files
+# ==============================================================================
+# TEMPORARY & SYSTEM FILES
+# ==============================================================================
 *.tmp
 *.temp
 *.cache
@@ -129,7 +213,7 @@ configs/geom*.yml
 *.sublime-*
 Thumbs.db
 
-# Environment and configuration files
+# Environment files
 .env
 .env.local
 .env.*.local
@@ -138,23 +222,16 @@ env/
 ENV/
 .venv
 
-# Jupyter notebook checkpoints
+# Jupyter notebooks
 .ipynb_checkpoints/
 *.ipynb
 
-# Archive folders
-zarchive/
-archive/
-old/
-backup/
-
-# Example output directories
-examples/output*/
-examples/results*/
-
-# Tensorboard logs
-events.out.tfevents.*
-runs/
+# ==============================================================================
+# DEVELOPMENT & TESTING TOOLS
+# ==============================================================================
+# pytest
+.pytest_cache/
+.tox/
 
 # Coverage reports
 htmlcov/
@@ -163,19 +240,19 @@ htmlcov/
 coverage.xml
 *.cover
 
-# pytest
-.pytest_cache/
-.tox/
-
 # mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Documentation builds (if using Sphinx)
+# Documentation builds
 docs/_build/
 docs/_static/
 docs/_templates/
 
-# Keep these empty directories with .gitkeep
+# Tensorboard logs
+events.out.tfevents.*
+runs/
+
+# Keep .gitkeep files
 !.gitkeep

@@ -295,7 +295,8 @@ def generate_molecules_to_population(
                 atom_type_index = atom_type,
                 # edge_index=torch.empty((2, 0), dtype=torch.long),  # Empty edge_index for compatibility
                 # edge_type=torch.empty((0,), dtype=torch.long), # Empty edge_type for compatibility
-                smiles=smile
+                smiles=smile,
+                update_mask=torch.ones(len(atom_type), dtype=torch.float32)  # All atoms variable (no scaffold)
             )
             
             population.append(data)
@@ -530,9 +531,12 @@ def generate_molecules_with_fixed_structure_to_population(
                 smiles=smile
             )
             
-            # Add update mask information if available
+            # Add update mask information (REQUIRED for collate compatibility in scaffold mode)
             if update_mask is not None:
                 data.update_mask = update_mask.float()
+            else:
+                # Even without scaffold, add update_mask with all 1s (all atoms are variable)
+                data.update_mask = torch.ones(len(atom_type), dtype=torch.float32)
             
             population_molecules.append(data)
             

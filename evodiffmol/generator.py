@@ -217,6 +217,7 @@ class MoleculeGenerator:
         scaffold_scale_factor: float = 2.5,
         positioning_strategy: str = 'plane_through_origin',
         fine_tune_epochs: int = 0,
+        fitness_weights: Optional[Dict[str, float]] = None,
         output_dir: Optional[str] = None,
         save_results: bool = False,
         verbose: Optional[bool] = None,
@@ -235,6 +236,9 @@ class MoleculeGenerator:
             scaffold_scale_factor: Scale factor for scaffold generation (default: 2.5)
             positioning_strategy: Scaffold positioning strategy (default: 'plane_through_origin')
             fine_tune_epochs: Fine-tuning epochs for scaffold (default: 0)
+            fitness_weights: Weights for each property in fitness calculation 
+                           (default: equal weights of 1.0 for all properties)
+                           Example: {'logp': 2.0, 'qed': 1.0} gives logp twice the importance
             output_dir: Directory to save results (optional, no files saved if None)
             save_results: Save final results and logs (default: False)
             verbose: Print progress information (default: use instance verbose setting)
@@ -256,6 +260,7 @@ class MoleculeGenerator:
             target_properties=target_properties,
             population_size=population_size,
             generations=generations,
+            fitness_weights=fitness_weights,
             output_dir=output_dir,
             scaffold_scale_factor=scaffold_scale_factor,
             positioning_strategy=positioning_strategy,
@@ -279,7 +284,7 @@ class MoleculeGenerator:
                 # Convert SMILES to MOL2 and create filtered dataset
                 if verbose:
                     print(f"🔬 Scaffold mode: filtering dataset for scaffold '{scaffold_smiles}'")
-                dataset = self._get_scaffold_dataset(scaffold_smiles)
+                dataset = self._get_scaffold_dataset(scaffold_smiles, output_dir=output_dir)
             elif scaffold_mol2_path:
                 # Use provided MOL2 file directly
                 if verbose:
@@ -313,6 +318,24 @@ class MoleculeGenerator:
         # Create scoring_config from base config + target properties
         scoring_config = self.base_ga_config.get('scoring_operator', {}).copy()
         scoring_config['property_config'] = property_config
+        
+        # CRITICAL: Override scoring_names and selection_names with target_properties
+        # This ensures fitness is calculated only from target properties, not from base config
+        target_prop_names = list(target_properties.keys())
+        scoring_config['scoring_names'] = target_prop_names
+        scoring_config['selection_names'] = target_prop_names
+        
+        # Auto-detect ADMET properties from target_properties
+        # ADMET properties are those not in the basic property list
+        basic_properties = {'logp', 'qed', 'sa', 'tpsa'}
+        admet_properties = [prop for prop in target_properties.keys() if prop not in basic_properties]
+        
+        if admet_properties:
+            # Add ADMET properties to scoring config
+            scoring_config['scoring_admet_names'] = admet_properties
+            
+            if verbose:
+                print(f"🧬 ADMET properties detected: {admet_properties}")
         
         # Determine the scaffold_mol2_path for GeneticTrainer
         # If scaffold_mol2_path was provided directly, use it
@@ -434,6 +457,7 @@ class MoleculeGenerator:
         target_properties: Dict[str, float],
         population_size: Optional[int],
         generations: Optional[int],
+        fitness_weights: Optional[Dict[str, float]],
         output_dir: Optional[str],
         scaffold_scale_factor: float,
         positioning_strategy: str,
@@ -442,16 +466,24 @@ class MoleculeGenerator:
         """Create GA configuration from parameters.
         
         Converts target_properties into proper property_config with preferred_value.
+        fitness_weights defaults to equal weights (1.0) for all properties if not specified.
         """
         # Extract nested sections from base config
         ga_config_dict = self.base_ga_config.get('genetic_algorithm', {})
         sampling_config = self.base_ga_config.get('sampling_parameters', {})
         scaffold_config = self.base_ga_config.get('scaffold', {})
         
+        # CRITICAL FIX: fitness_weights should default to equal weights (1.0) for all properties
+        # target_properties contains TARGET VALUES (e.g., {'BBB_Martins': 0.0} means target=0)
+        # fitness_weights contains IMPORTANCE (e.g., {'BBB_Martins': 1.0} means equal importance)
+        if fitness_weights is None:
+            # Default: equal weights for all target properties
+            fitness_weights = {prop: 1.0 for prop in target_properties.keys()}
+        
         # Start with base config, using nested structure
         config_dict = {
             'elite_size': population_size if population_size else ga_config_dict.get('elite_size', 100),
-            'ga_epochs': generations if generations else ga_config_dict.get('ga_epochs', 50),
+            'ga_epochs': generations if generations is not None else ga_config_dict.get('ga_epochs', 50),
             'batch_size': ga_params.get('batch_size', ga_config_dict.get('batch_size', 32)),
             'num_scale_factor': ga_params.get('num_scale_factor', ga_config_dict.get('num_scale_factor', 2.0)),
             'adaptive': ga_config_dict.get('adaptive', True),
@@ -462,7 +494,7 @@ class MoleculeGenerator:
             'output_dir': output_dir if output_dir else './ga_output_temp',
             'scaffold_scale_factor': scaffold_scale_factor,
             'positioning_strategy': positioning_strategy,
-            'fitness_weights': target_properties,
+            'fitness_weights': fitness_weights,
         }
         
         # Override with any additional parameters
@@ -474,6 +506,9 @@ class MoleculeGenerator:
     def _create_property_config(self, target_properties: Dict[str, float]) -> Dict[str, Dict]:
         """Convert target_properties to property_config with preferred_value.
         
+        Also includes configurations for all standard scoring properties (logp, qed, sa, tpsa)
+        even if they're not in target_properties, since they're always calculated.
+        
         Args:
             target_properties: Dict like {'logp': 2.0, 'qed': 1.0, 'sa': 1.0}
             
@@ -483,21 +518,42 @@ class MoleculeGenerator:
         # Get base property config from GA config
         base_config = self.base_ga_config.get('scoring_operator', {}).get('property_config', {})
         
+        # Import comprehensive property configs for ADMET and molecular properties
+        try:
+            from evodiffmol.scoring.property_configs import get_all_property_configs
+            comprehensive_configs = get_all_property_configs()
+        except ImportError:
+            comprehensive_configs = {}
+        
+        # Always include standard scoring properties (needed for normalization)
+        standard_properties = {'logp', 'qed', 'sa', 'tpsa'}
+        all_properties_needed = set(target_properties.keys()) | standard_properties
+        
         # Create new property config with preferred_value from target_properties
         property_config = {}
-        for prop_name, target_value in target_properties.items():
+        for prop_name in all_properties_needed:
+            target_value = target_properties.get(prop_name)  # None if not a target
+            
             if prop_name in base_config:
                 # Copy base config for this property
                 property_config[prop_name] = base_config[prop_name].copy()
-                # Override with preferred_value from target
-                property_config[prop_name]['preferred_value'] = target_value
+                # Override with preferred_value from target if specified
+                if target_value is not None:
+                    property_config[prop_name]['preferred_value'] = target_value
                 # Remove preferred_range if it exists (use preferred_value instead)
                 property_config[prop_name].pop('preferred_range', None)
+            elif prop_name in comprehensive_configs:
+                # Use comprehensive config (includes ADMET properties)
+                property_config[prop_name] = comprehensive_configs[prop_name].copy()
+                # Override with preferred_value from target if specified
+                if target_value is not None:
+                    property_config[prop_name]['preferred_value'] = target_value
             else:
-                # Create minimal config for unknown properties
-                property_config[prop_name] = {
-                    'preferred_value': target_value
-                }
+                # Property not found in any configuration - this is an error!
+                raise ValueError(
+                    f"Property '{prop_name}' not found in property configurations. "
+                    f"Available properties: {list(set(list(base_config.keys()) + list(comprehensive_configs.keys())))[:20]}..."
+                )
         
         return property_config
     
@@ -620,17 +676,21 @@ class MoleculeGenerator:
         
         return temp_file.name
     
-    def _get_scaffold_dataset(self, scaffold_smiles: str):
+    def _get_scaffold_dataset(self, scaffold_smiles: str, output_dir: Optional[str] = None):
         """Get or create scaffold-filtered dataset."""
         # Import the helper function
-        from .utils.dataset_scaffold_smiles import create_scaffold_dataset
+        from .utils.dataset_scaffold_smiles import create_scaffold_dataset_from_smiles
         
-        # Create scaffold dataset
-        dataset = create_scaffold_dataset(
-            scaffold=scaffold_smiles,  # Parameter name is 'scaffold', not 'scaffold_smiles'
+        # Determine root directory: use output_dir/scaffold_cache if provided, otherwise 'datasets'
+        scaffold_root = os.path.join(output_dir, 'scaffold_cache') if output_dir else 'datasets'
+        
+        # Create scaffold dataset with pre_transform (CRITICAL for fine-tuning compatibility)
+        dataset = create_scaffold_dataset_from_smiles(
+            scaffold_smiles=scaffold_smiles,
             dataset_name=self.dataset_name,
             remove_h=self.remove_h,
-            root='datasets'
+            root=scaffold_root,
+            pre_transform=self.transforms  # ← FIX: Include transforms to create atom_feat_full
         )
         
         return dataset
@@ -640,7 +700,7 @@ class MoleculeGenerator:
         
         Returns list of SMILES strings.
         """
-        # Method 1: Try to load from epoch_last/elite_molecules.csv if available
+        # Method 1: Try to load from epoch_last/elite_molecules.csv if available (top level)
         if output_dir:
             csv_path = os.path.join(output_dir, 'epoch_last', 'elite_molecules.csv')
             if os.path.exists(csv_path):

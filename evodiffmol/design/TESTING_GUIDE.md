@@ -428,7 +428,7 @@ def test_output_dir_basic(checkpoint_path, config_path, dataset, tmp_path):
     assert output_dir.exists(), "output_dir should be created"
     assert (output_dir / "final_results.txt").exists(), "final_results.txt missing"
     assert (output_dir / "initial").is_dir(), "initial/ directory missing"
-    assert (output_dir / "epoch_last").is_dir(), "epoch_last/ directory missing"
+    assert (output_dir / "epoch_last").is_dir(), "epoch_last/ directory missing (top level)"
     assert (output_dir / "logs").is_dir(), "logs/ directory missing"
     assert (output_dir / "logs" / "genetic_training.log").exists(), "training log missing"
     

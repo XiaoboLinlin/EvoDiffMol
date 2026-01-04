@@ -95,6 +95,17 @@ class GAPopulationDataset(InMemoryDataset):
         
         logger.info(f"Processing {len(self.population_data)} molecules...")
         
+        # CRITICAL FIX: Ensure all Data objects have update_mask for collate compatibility
+        # This is required when mixing scaffold-based and non-scaffold molecules
+        import torch
+        for data in self.population_data:
+            if not hasattr(data, 'update_mask') or data.update_mask is None:
+                # Add default update_mask (all atoms variable)
+                if hasattr(data, 'atom_type'):
+                    data.update_mask = torch.ones(len(data.atom_type), dtype=torch.float32)
+                elif hasattr(data, 'pos'):
+                    data.update_mask = torch.ones(len(data.pos), dtype=torch.float32)
+        
         # Apply pre_transform if specified
         if self.pre_transform is not None:
             self.population_data = [self.pre_transform(data) for data in self.population_data]
@@ -141,78 +152,123 @@ class GAPopulationDataset(InMemoryDataset):
         """
         return cls(filepath=filepath, transform=transform)
     
+    @staticmethod
+    def _extract_numeric_value(attr_val):
+        """Extract numeric value from attribute (tensor or float)."""
+        if attr_val is None:
+            return None
+        try:
+            return attr_val.item() if hasattr(attr_val, 'item') else float(attr_val)
+        except:
+            return None
+    
+    @staticmethod
+    def _is_property_attribute(attr_name: str, attr_val) -> bool:
+        """Check if attribute is a valid numeric property."""
+        # Skip internal/structural attributes
+        if attr_name.startswith('_') or attr_name in {
+            'atom_type', 'pos', 'edge_index', 'edge_attr', 'batch', 
+            'smiles', 'fitness_score', 'num_atoms', 'num_nodes', 'num_edges',
+            'x', 'y', 'train_mask', 'val_mask', 'test_mask'
+        }:
+            return False
+        
+        # Check if it's numeric
+        if callable(attr_val):
+            return False
+        
+        try:
+            _ = attr_val.item() if hasattr(attr_val, 'item') else float(attr_val)
+            return True
+        except:
+            return False
+    
+    @classmethod
+    def _detect_property_names(cls, population_sample: List[Data]) -> set:
+        """Detect all property attribute names from sample."""
+        all_properties = set()
+        for data in population_sample:
+            # Use dict comprehension for efficiency
+            properties = {
+                attr_name for attr_name in dir(data)
+                if cls._is_property_attribute(attr_name, getattr(data, attr_name, None))
+            }
+            all_properties.update(properties)
+        return all_properties
+    
+    @classmethod
+    def _calculate_property_stats(cls, population: List[Data], prop_name: str) -> Dict[str, float]:
+        """Calculate statistics for a single property across population."""
+        # Extract all values in one pass (list comprehension)
+        values = [
+            cls._extract_numeric_value(getattr(data, prop_name, None))
+            for data in population if hasattr(data, prop_name)
+        ]
+        # Filter out None values
+        values = [v for v in values if v is not None]
+        
+        if not values:
+            return {}
+        
+        return {
+            f'{prop_name}_mean': sum(values) / len(values),
+            f'{prop_name}_min': min(values),
+            f'{prop_name}_max': max(values),
+        }
+    
     def get_population_statistics(self, population: Optional[List[Data]] = None) -> Dict[str, Any]:
         """Get statistics about the population.
         
         Args:
             population: Optional population list. If None, uses the dataset's own data.
         """
-        if population is not None:
-            # Use provided population
-            num_molecules = len(population)
-            num_atoms_list = [len(data.atom_type) for data in population]
-            
-            stats = {
-                'size': num_molecules,
-                'num_atoms_mean': sum(num_atoms_list) / num_molecules if num_molecules > 0 else 0,
-                'num_atoms_min': min(num_atoms_list) if num_atoms_list else 0,
-                'num_atoms_max': max(num_atoms_list) if num_atoms_list else 0,
-            }
-            
-            # Fitness statistics
-            fitness_scores = []
-            for data in population:
-                if hasattr(data, 'fitness_score') and data.fitness_score is not None:
-                    fitness_scores.append(data.fitness_score)
-            
-            if fitness_scores:
-                stats.update({
-                    'fitness_mean': sum(fitness_scores) / len(fitness_scores),
-                    'fitness_min': min(fitness_scores),
-                    'fitness_max': max(fitness_scores),
-                    'valid_fitness_count': len(fitness_scores)
-                })
-            
-            return stats
-        else:
-            # Use dataset's own data
+        # Convert dataset to list if needed
+        if population is None:
             if not hasattr(self, 'data') or self.data is None:
                 return {}
-            
-            # Basic statistics
-            num_molecules = len(self)
-            num_atoms_list = []
-            for i in range(num_molecules):
-                data = self[i]
-                if hasattr(data, 'num_atoms'):
-                    num_atoms_list.append(data.num_atoms.item())
-                elif hasattr(data, 'atom_type'):
-                    num_atoms_list.append(len(data.atom_type))
-                else:
-                    num_atoms_list.append(0)
-            
-            stats = {
-                'size': num_molecules,
-                'num_atoms_mean': sum(num_atoms_list) / num_molecules if num_molecules > 0 else 0,
-                'num_atoms_min': min(num_atoms_list) if num_atoms_list else 0,
-                'num_atoms_max': max(num_atoms_list) if num_atoms_list else 0,
-            }
-            
-            # Fitness statistics
-            fitness_scores = []
-            for i in range(num_molecules):
-                if hasattr(self[i], 'fitness_score') and self[i].fitness_score is not None:
-                    fitness_scores.append(self[i].fitness_score)
-            
-            if fitness_scores:
-                stats.update({
-                    'fitness_mean': sum(fitness_scores) / len(fitness_scores),
-                    'fitness_min': min(fitness_scores),
-                    'fitness_max': max(fitness_scores),
-                    'valid_fitness_count': len(fitness_scores)
-                })
-            
-            return stats
+            population = [self[i] for i in range(len(self))]
+        
+        if not population:
+            return {}
+        
+        num_molecules = len(population)
+        
+        # Basic statistics (vectorized)
+        num_atoms_list = [len(data.atom_type) for data in population]
+        
+        stats = {
+            'size': num_molecules,
+            'num_atoms_mean': sum(num_atoms_list) / num_molecules,
+            'num_atoms_min': min(num_atoms_list) if num_atoms_list else 0,
+            'num_atoms_max': max(num_atoms_list) if num_atoms_list else 0,
+        }
+        
+        # Fitness statistics (vectorized extraction)
+        fitness_scores = [
+            self._extract_numeric_value(data.fitness_score)
+            for data in population
+            if hasattr(data, 'fitness_score')
+        ]
+        fitness_scores = [f for f in fitness_scores if f is not None]
+        
+        if fitness_scores:
+            stats.update({
+                'fitness_mean': sum(fitness_scores) / len(fitness_scores),
+                'fitness_min': min(fitness_scores),
+                'fitness_max': max(fitness_scores),
+                'valid_fitness_count': len(fitness_scores)
+            })
+        
+        # Automatically detect all property attributes (sample-based)
+        sample_size = min(10, num_molecules)
+        all_property_names = self._detect_property_names(population[:sample_size])
+        
+        # Calculate statistics for all detected properties (vectorized)
+        for prop_name in sorted(all_property_names):
+            prop_stats = self._calculate_property_stats(population, prop_name)
+            stats.update(prop_stats)
+        
+        return stats
     
     @classmethod
     def from_population_list_to_class(cls, population: List[Data], pre_transform) -> 'GAPopulationDataset':

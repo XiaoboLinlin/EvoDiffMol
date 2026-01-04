@@ -90,7 +90,8 @@ class GAConfigLoader:
             fitness_weights=fitness_weights,
             use_harmonic_mean=ga_config_dict.get('use_harmonic_mean', True),
             output_dir=final_output_dir,
-            checkpoint_freq=ga_config_dict.get('checkpoint_freq', -1)
+            checkpoint_freq=ga_config_dict.get('checkpoint_freq', -1),
+            save_epoch_csv_freq=ga_config_dict.get('save_epoch_csv_freq', -1)
         )
     
     @staticmethod

@@ -45,7 +45,8 @@ class GAConfig:
     
     # File paths
     output_dir: str = './ga_output'
-    checkpoint_freq: int = float('inf')
+    checkpoint_freq: int = float('inf')        # Save full model checkpoints (heavy)
+    save_epoch_csv_freq: int = -1              # Save epoch CSV files only (lightweight)
     
 
     

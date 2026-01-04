@@ -151,7 +151,11 @@ output_dir/                        # Your specified directory
 ├── initial/                       # Initial population (epoch 0)
 │   └── elite_molecules.csv        # Initial molecules
 │
-├── epoch_last/                    # Final epoch results
+├── epoch/                         # Intermediate epochs (for ablation)
+│   ├── epoch_0/                   # Initial population
+│   ├── epoch_1/                   # After 1st generation
+│   └── epoch_3/                   # After 3rd generation
+├── epoch_last/                    # Final optimized (top level)
 │   ├── elite_molecules.csv        # Final population with properties
 │   └── mol2_files/                # 3D structures (optional)
 │       └── elite_*.mol2
@@ -190,11 +194,16 @@ molecules = gen.optimize(
 # results/experiment_001/
 #   ├── final_results.txt              # Summary
 #   ├── final_elite_population.pt      # Population checkpoint
-#   ├── initial/
-#   │   └── elite_molecules.csv        # Initial population
-#   ├── epoch_last/
+#   ├── epoch/                         # Intermediate epochs (for ablation)
+#   │   ├── epoch_0/                   # Initial population
+#   │   │   └── elite_molecules.csv
+#   │   ├── epoch_1/                   # After generation 1
+#   │   │   └── elite_molecules.csv
+#   │   └── epoch_3/                   # After generation 3
+#   │       └── elite_molecules.csv
+#   ├── epoch_last/                    # Final optimized (top level)
 #   │   ├── elite_molecules.csv        # Final molecules with properties
-#   │   └── mol2_files/                # 3D structures (optional)
+#   │   └── mol2_files/                # 3D structures
 #   └── logs/
 #       └── genetic_training.log       # Progress logs
 ```
@@ -581,7 +590,7 @@ scaffold_dataset = GeneralScaffoldDataset(
 
 - **`output_dir`** (str): Base directory for scaffold results (optional)
   - Creates nested structure: `output_dir/scaffold_<id>/<run_name>/`
-  - Each run has `initial/`, `epoch_last/`, `logs/`, `config/`
+  - Each run has `epoch/` (with epoch_0, epoch_last), `logs/`, `config/`
   - Example: `'ga_output/moses_scaffolds'` → `ga_output/moses_scaffolds/scaffold_1/shared_initial/`
   - Allows organizing multiple scaffolds and runs hierarchically
 
@@ -605,11 +614,14 @@ molecules = gen.optimize(
 ga_output/moses_scaffolds/              # Base output_dir
 └── scaffold_<id>/                       # Auto-generated scaffold subdirectory
     └── <run_name>/                      # Run-specific subdirectory
-        ├── initial/
+        ├── epoch/                      # Intermediate epochs
+        │   ├── epoch_0/                # Initial population
+        │   │   └── elite_molecules.csv
+        │   └── epoch_1/                # After generation 1
+        │       └── elite_molecules.csv
+        ├── epoch_last/                 # Final optimized (top level)
         │   ├── elite_molecules.csv
-        │   ├── initial_population.pt   # All from scaffold dataset
         │   └── mol2_files/
-        ├── epoch_last/
         │   ├── elite_molecules.csv
         │   └── mol2_files/              # Final molecules (all have scaffold)
         ├── logs/

@@ -22,7 +22,8 @@ def create_scaffold_dataset_from_smiles(
     max_molecules: int = 10000,
     remove_h: bool = True,
     root: str = './ga_output',
-    project_name: Optional[str] = None
+    project_name: Optional[str] = None,
+    pre_transform = None  # ← ADD: PyG pre_transform for compatibility
 ) -> GeneralScaffoldDataset:
     """
     Create a scaffold dataset using just a SMILES string (no MOL2 file needed).
@@ -42,6 +43,7 @@ def create_scaffold_dataset_from_smiles(
         remove_h: Whether hydrogens are removed
         root: Root directory for output
         project_name: Optional project name for directory naming
+        pre_transform: PyTorch Geometric pre_transform (e.g., AtomFeat) for creating required attributes
         
     Returns:
         GeneralScaffoldDataset instance
@@ -89,6 +91,21 @@ def create_scaffold_dataset_from_smiles(
     # Write MOL2 file - signature: write_mol2_structure(mol, pos, smile, output_path, update_mask)
     write_mol2_structure(mol, positions, smiles, temp_mol2_path, update_mask=None)
     
+    # If pre_transform is provided, clean cache to force reprocessing
+    # (Required for fine-tuning to work with PyTorch Geometric 2.7.0)
+    if pre_transform is not None:
+        import shutil
+        # Determine cache folder name
+        scaffold_name = scaffold_smiles.replace('/', '_').replace('\\', '_')[:50]
+        dataset_folder = f"{dataset_name.lower()}_{'noh' if remove_h else 'withh'}_scaffold_{scaffold_name}"
+        cache_dir = os.path.join(root, dataset_folder)
+        processed_dir = os.path.join(cache_dir, 'processed')
+        
+        # Remove processed cache if it exists
+        if os.path.exists(processed_dir):
+            print(f"   🔄 Clearing cached dataset (required for pre_transform): {processed_dir}")
+            shutil.rmtree(processed_dir)
+    
     # Create scaffold dataset using the temporary MOL2 file
     scaffold_dataset = GeneralScaffoldDataset(
         scaffold_mol2_path=temp_mol2_path,
@@ -98,7 +115,8 @@ def create_scaffold_dataset_from_smiles(
         min_molecules=min_molecules,
         max_molecules=max_molecules,
         remove_h=remove_h,
-        project_name=project_name
+        project_name=project_name,
+        pre_transform=pre_transform  # ← FIX: Pass pre_transform for PyG compatibility
     )
     
     return scaffold_dataset

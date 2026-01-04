@@ -63,11 +63,12 @@ def remap(x: float, x_min: float, x_max: float) -> float:
 
 
 class MolecularScoring(ScoringAbstract):
-    """Molecular scoring class optimized for logP, QED, and synthetic accessibility."""
+    """Molecular scoring class optimized for logP, QED, and synthetic accessibility, with optional ADMET support."""
 
     def __init__(self, 
                  scoring_names: List[str] = None,
                  selection_names: List[str] = None,
+                 scoring_admet_names: Optional[List[str]] = None,
                  property_config: Optional[Dict[str, Dict[str, Any]]] = None,
                  scoring_parameters: Optional[Dict[str, Any]] = None, 
                  data_column_name: str = 'smiles', 
@@ -78,6 +79,7 @@ class MolecularScoring(ScoringAbstract):
         Args:
             scoring_names: List of scoring function names. Defaults to ['logp', 'qed', 'sa']
             selection_names: List of selection function names. Defaults to same as scoring_names
+            scoring_admet_names: Optional list of ADMET property names to predict (requires admet-ai package)
             property_config: Configuration for property ranges and preferences
             scoring_parameters: Parameters for scoring functions (e.g., SA model path)
             data_column_name: Name for data column
@@ -99,6 +101,7 @@ class MolecularScoring(ScoringAbstract):
         # Store variables
         self._scoring_names = scoring_names
         self._selection_names = selection_names
+        self._scoring_admet_names = scoring_admet_names or []
         self._data_column_name = data_column_name
         self._fitness_column_name = fitness_column_name
         self._fitness_function = fitness_function
@@ -121,38 +124,42 @@ class MolecularScoring(ScoringAbstract):
             from rdkit.Contrib.SA_Score import sascorer
             self._sa_scorer = sascorer
             print("✅ Using RDKit SA_Score module for synthetic accessibility scoring")
+        
+        # Setup ADMET model if ADMET properties are requested
+        self._admet_model = None
+        if self._scoring_admet_names:
+            try:
+                from admet_ai import ADMETModel
+                self._admet_model = ADMETModel()
+                print(f"✅ Loaded ADMET-AI model for {len(self._scoring_admet_names)} ADMET properties")
+            except ImportError:
+                raise ImportError(
+                    "ADMET properties require the 'admet-ai' package. "
+                    "Install it with: pip install admet-ai"
+                )
 
     def _get_default_property_config(self) -> Dict[str, Dict[str, Any]]:
         """Get default property configuration.
         
-        Supports two preference modes for optimization:
-        - preferred_range: [min, max] - optimal values within this range
-        - preferred_value: target_value - optimal single target value
+        Loads comprehensive ADMET and molecular property configurations from
+        property_configs.py, which contains ranges and preferred values derived
+        from 2000 MOSES dataset molecules analyzed with ADMET-AI.
         
         Returns:
-            Default configuration for molecular properties
+            Default configuration for all 49 molecular properties
         """
-        return {
-            'logp': {
-                'range': [-4, 7], 
-                'preferred_range': [1.0, 3.0],  # Use preferred_range OR preferred_value, not both
-                # 'preferred_value': 2.0,  # Alternative: target a specific logP value
-                'higher_is_better': None  # Preference-based
-            },
-            'qed': {
-                'range': [0, 1], 
-                'higher_is_better': True
-            },
-            'sa': {
-                'range': [1, 10], 
-                'higher_is_better': False  # Lower SA scores are better
-            },
-            'tpsa': {
-                'range': [0, 188],
-                'preferred_value': 90,  # Balanced drug-like value
-                'higher_is_better': False  # Lower TPSA is generally better for permeability
+        try:
+            from .property_configs import get_all_property_configs
+            return get_all_property_configs()
+        except ImportError:
+            # Fallback to minimal configuration if property_configs not available
+            print("Warning: Could not load property_configs.py, using minimal fallback config")
+            return {
+                'logp': {'range': [-3, 7], 'preferred_value': 2.0},
+                'qed': {'range': [0, 1], 'preferred_value': 1.0},
+                'sa': {'range': [1, 10], 'preferred_value': 1.0},
+                'tpsa': {'range': [0, 200], 'preferred_value': 80.0},
             }
-        }
 
     def get_name_to_function_dict(self) -> Dict[str, callable]:
         """Get dictionary that maps string to scoring functions.
@@ -167,6 +174,20 @@ class MolecularScoring(ScoringAbstract):
             'synth': self._compute_sa_normalized,  # Alias for sa
             'tpsa': self._compute_tpsa_normalized,
         }
+    
+    def get_name_to_raw_function_dict(self) -> Dict[str, callable]:
+        """Get dictionary that maps string to raw (unnormalized) scoring functions.
+
+        Returns:
+            Dictionary mapping names to raw scoring functions
+        """
+        return {
+            'logp': lambda mol: self._crippen_mol_logp_with_default(mol, norm=False),
+            'qed': self._qed_with_default,
+            'sa': lambda mol: self._synthetic_accessibility_with_default(mol, norm=False),
+            'synth': lambda mol: self._synthetic_accessibility_with_default(mol, norm=False),  # Alias for sa
+            'tpsa': self._tpsa_with_default,
+        }
 
     def generate_scores(self, mols: List[rdkit.Chem.rdchem.Mol]) -> pd.DataFrame:
         """Generate scores for list of RDKit molecules.
@@ -175,51 +196,100 @@ class MolecularScoring(ScoringAbstract):
             mols: List of RDKit molecules
 
         Returns:
-            DataFrame with scores for each molecule
+            DataFrame with scores for each molecule (includes both normalized scores, raw values, and ADMET predictions)
         """
         # Initialize results dictionary
         results = {}
         
-        # Add SMILES column
-        smiles_list = []
-        for mol in mols:
-            if mol is not None:
-                smiles_list.append(mol_to_canonical_smiles(mol))
-            else:
-                smiles_list.append(None)
-        results[self._data_column_name] = smiles_list
+        # Add SMILES column (vectorized)
+        results[self._data_column_name] = [mol_to_canonical_smiles(mol) if mol else None for mol in mols]
+        smiles_list = results[self._data_column_name]
 
-        # Calculate scores for each scoring function
+        # Get raw function dictionary
+        raw_function_dict = self.get_name_to_raw_function_dict()
+
+        # Calculate scores for each scoring function (vectorized with map)
         for scoring_name in self._scoring_names:
             if scoring_name in self._name_to_function:
                 scoring_function = self._name_to_function[scoring_name]
-                scores = []
-                for mol in mols:
-                    if mol is not None:
-                        scores.append(scoring_function(mol))
-                    else:
-                        scores.append(0.0)  # Default score for invalid molecules
-                results[scoring_name] = scores
-
-        # Calculate fitness from selection metrics
-        if self._selection_names:
-            fitness_scores = []
-            for i in range(len(mols)):
-                selection_scores = []
-                for selection_name in self._selection_names:
-                    if selection_name in results:
-                        selection_scores.append(results[selection_name][i])
+                # Vectorized: apply function to all molecules at once
+                results[scoring_name] = [scoring_function(mol) if mol else 0.0 for mol in mols]
                 
-                if selection_scores:
-                    try:
-                        fitness = self._fitness_function(selection_scores)
-                    except:
-                        fitness = 0.0
-                else:
-                    fitness = 0.0
-                fitness_scores.append(fitness)
+                # Calculate raw values (vectorized)
+                if scoring_name in raw_function_dict:
+                    raw_function = raw_function_dict[scoring_name]
+                    # Default values mapping
+                    default_map = {
+                        'logp': -3.0, 'qed': 0.0, 
+                        'sa': 10.0, 'synth': 10.0, 'tpsa': 200.0
+                    }
+                    default_val = default_map.get(scoring_name, 0.0)
+                    results[f'{scoring_name}_raw'] = [
+                        raw_function(mol) if mol else default_val for mol in mols
+                    ]
+
+        # Calculate ADMET properties if requested
+        if self._scoring_admet_names and self._admet_model is not None:
+            try:
+                # Get ADMET predictions for all molecules (single batch call - efficient!)
+                admet_df = self._admet_model.predict(smiles_list)
+                
+                # Validate requested properties
+                missing_properties = [prop for prop in self._scoring_admet_names if prop not in admet_df.columns]
+                if missing_properties:
+                    print(f"Warning: Some ADMET properties not found: {missing_properties}")
+                    print(f"Available: {list(admet_df.columns)[:10]}...")
+                
+                # Add ADMET scores (vectorized operations on entire columns)
+                for admet_name in self._scoring_admet_names:
+                    if admet_name in admet_df.columns:
+                        # Store raw values (already a pandas Series - efficient!)
+                        raw_values = admet_df[admet_name].tolist()
+                        results[f'{admet_name}_raw'] = raw_values
+                        
+                        # Normalize the values (vectorized if possible)
+                        if admet_name in self._property_config:
+                            # Use list comprehension instead of loop (more efficient in Python)
+                            normalized_values = [
+                                self._normalize_score(val, admet_name) 
+                                for val in raw_values
+                            ]
+                            results[admet_name] = normalized_values
+                        else:
+                            results[admet_name] = admet_df[admet_name].tolist()
+                            print(f"Warning: No config for {admet_name}, using raw values")
+                            
+            except Exception as e:
+                print(f"Error predicting ADMET properties: {e}")
+                # Add default values efficiently
+                num_mols = len(mols)
+                for admet_name in self._scoring_admet_names:
+                    results[admet_name] = [0.0] * num_mols
+                    results[f'{admet_name}_raw'] = [0.0] * num_mols
+
+        # Calculate fitness from selection metrics (vectorized)
+        if self._selection_names:
+            # Build fitness matrix efficiently
+            num_mols = len(mols)
+            # Get all selection scores as a 2D structure
+            selection_matrix = []
+            for selection_name in self._selection_names:
+                if selection_name in results:
+                    selection_matrix.append(results[selection_name])
             
-            results[self._fitness_column_name] = fitness_scores
+            if selection_matrix:
+                # Transpose to get scores per molecule
+                # Calculate fitness for all molecules at once
+                fitness_scores = []
+                for i in range(num_mols):
+                    mol_scores = [matrix[i] for matrix in selection_matrix]
+                    try:
+                        fitness_scores.append(self._fitness_function(mol_scores))
+                    except:
+                        fitness_scores.append(0.0)
+                results[self._fitness_column_name] = fitness_scores
+            else:
+                results[self._fitness_column_name] = [0.0] * num_mols
 
         return pd.DataFrame(results)
 
@@ -242,25 +312,45 @@ class MolecularScoring(ScoringAbstract):
         Args:
             population: List of Data objects to evaluate
         """
-        # Extract SMILES strings from Data objects
+        # Extract SMILES strings (vectorized)
         smiles_list = [data.smiles for data in population if data is not None and hasattr(data, 'smiles') and data.smiles]
         
-        # Generate scores directly from SMILES
+        # Generate scores directly from SMILES (single batch call)
         scores_df = self.generate_scores_from_smiles(smiles_list)
         
-        # Update Data object fitness scores
+        # Get all column names once
+        all_columns = scores_df.columns.tolist()
+        scoring_columns = [col for col in all_columns if col in self._scoring_names]
+        raw_columns = [f'{name}_raw' for name in self._scoring_names if f'{name}_raw' in all_columns]
+        
+        # Update Data objects with scores (vectorized access to DataFrame)
         for i, data in enumerate(population):
-            if data is None:
-                continue  # Skip None values
-            if hasattr(data, 'smiles') and data.smiles and i < len(scores_df):
-                data.fitness_score = torch.tensor([scores_df.iloc[i][self.fitness_column_name]], dtype=torch.float)
-                
-                # Store individual property scores
-                for scoring_name in self._scoring_names:
-                    if scoring_name in scores_df.columns:
-                        setattr(data, scoring_name, torch.tensor([scores_df.iloc[i][scoring_name]], dtype=torch.float))
-            else:
-                data.fitness_score = torch.tensor([0.0], dtype=torch.float)
+            if data is None or not (hasattr(data, 'smiles') and data.smiles) or i >= len(scores_df):
+                if data is not None:
+                    data.fitness_score = torch.tensor([0.0], dtype=torch.float)
+                continue
+            
+            row = scores_df.iloc[i]
+            
+            # Set fitness score
+            data.fitness_score = torch.tensor([row[self.fitness_column_name]], dtype=torch.float)
+            
+            # Store normalized property scores (batch operation)
+            for col_name in scoring_columns:
+                setattr(data, col_name, torch.tensor([row[col_name]], dtype=torch.float))
+            
+            # Store raw property scores (batch operation)
+            for col_name in raw_columns:
+                setattr(data, col_name, torch.tensor([row[col_name]], dtype=torch.float))
+            
+            # Store ADMET scores if present
+            if self._scoring_admet_names:
+                for admet_name in self._scoring_admet_names:
+                    if admet_name in all_columns:
+                        setattr(data, admet_name, torch.tensor([row[admet_name]], dtype=torch.float))
+                    raw_col = f'{admet_name}_raw'
+                    if raw_col in all_columns:
+                        setattr(data, raw_col, torch.tensor([row[raw_col]], dtype=torch.float))
 
     @property
     def column_names(self) -> List[str]:
@@ -288,60 +378,44 @@ class MolecularScoring(ScoringAbstract):
     def _normalize_score(self, value: float, property_name: str) -> float:
         """Normalize a score based on property configuration.
         
+        All properties use preferred_value as the target. The normalization 
+        calculates distance from the target and converts to a score in [0, 1].
+        
         Args:
             value: Raw property value
             property_name: Name of the property
             
         Returns:
-            Normalized score in [0, 1] range
+            Normalized score in [0, 1] range (1 = at target, 0 = furthest from target)
         """
         if property_name not in self._property_config:
             return value
             
         config = self._property_config[property_name]
         prop_range = config.get('range', [0, 1])
-        preferred_range = config.get('preferred_range')
         preferred_value = config.get('preferred_value')
-        higher_is_better = config.get('higher_is_better', True)
         
-        # Clamp to range
+        # Clamp value to range
         value = max(prop_range[0], min(value, prop_range[1]))
         
+        # Calculate normalized score based on distance from preferred_value
         if preferred_value is not None:
-            # Preference-based scoring with a single target value
+            # Calculate maximum possible distance from target
             max_dist = max(preferred_value - prop_range[0], prop_range[1] - preferred_value)
+            # Calculate actual distance
             dist_from_target = abs(value - preferred_value)
+            # Normalize: closer to target = higher score
             if max_dist > 0:
                 return max(0.0, 1.0 - (dist_from_target / max_dist))
             else:
                 return 1.0 if value == preferred_value else 0.0
-        elif preferred_range:
-            # Preference-based scoring with a range (e.g., for logP)
-            if preferred_range[0] <= value <= preferred_range[1]:
-                # Value is in preferred range - score based on distance from center
-                center = (preferred_range[0] + preferred_range[1]) / 2
-                max_dist = (preferred_range[1] - preferred_range[0]) / 2
-                dist_from_center = abs(value - center)
-                return 1.0 - (dist_from_center / max_dist)
-            else:
-                # Value is outside preferred range - penalize based on distance
-                if value < preferred_range[0]:
-                    dist = preferred_range[0] - value
-                    max_dist = preferred_range[0] - prop_range[0]
-                else:
-                    dist = value - preferred_range[1]
-                    max_dist = prop_range[1] - preferred_range[1]
-                
-                if max_dist > 0:
-                    return max(0.0, 1.0 - (dist / max_dist))
-                else:
-                    return 0.0
         else:
-            # Simple range-based scoring
-            normalized = (value - prop_range[0]) / (prop_range[1] - prop_range[0])
-            if not higher_is_better:
-                normalized = 1.0 - normalized
-            return max(0.0, min(1.0, normalized))
+            # Fallback: no preferred value, just normalize to range
+            range_span = prop_range[1] - prop_range[0]
+            if range_span > 0:
+                return (value - prop_range[0]) / range_span
+            else:
+                return 1.0
 
     def _compute_logp_normalized(self, mol) -> float:
         """Compute normalized LogP score.

@@ -196,6 +196,7 @@ class GeneticTrainer(AbstractTrainer):
             selection_names = scoring_config.get('selection_names', scoring_names)
             property_config = scoring_config.get('property_config', {})
             scoring_parameters = scoring_config.get('scoring_parameters', {})
+            scoring_admet_names = scoring_config.get('scoring_admet_names', None)
             
             # Set fitness function based on config
             fitness_function = None
@@ -206,12 +207,15 @@ class GeneticTrainer(AbstractTrainer):
             self.molecular_scoring = MolecularScoring(
                 scoring_names=scoring_names,
                 selection_names=selection_names,
+                scoring_admet_names=scoring_admet_names,
                 property_config=property_config,
                 scoring_parameters=scoring_parameters,
                 fitness_function=fitness_function
             )
             
             logger.info(f"Initialized molecular scoring with properties: {scoring_names}")
+            if scoring_admet_names:
+                logger.info(f"ADMET properties enabled: {scoring_admet_names}")
         else:
             # Default configuration (fallback)
             import scipy.stats
@@ -238,51 +242,44 @@ class GeneticTrainer(AbstractTrainer):
         
         initial_dir = os.path.join(self.config.output_dir, 'initial')
         os.makedirs(initial_dir, exist_ok=True)
-        population_path = os.path.join(initial_dir, 'initial_population.pt')
         
-        if os.path.exists(population_path):
-            # Load existing population
-            self.elite_dataset = GAPopulationDataset(filepath=population_path)
-            elite_population = self.elite_dataset.to_population_list()
+        # Always initialize fresh population (don't load from .pt file)
+        logger.info("Initializing population...")
+        
+        # Use consistent initialize_population method for both scaffold and standard modes
+        if self.scaffold_mode:
+            # Scaffold mode: use scaffold scale factor
+            scale_factor = self.config.scaffold_scale_factor if self.config.scaffold_scale_factor is not None else getattr(self.config, 'num_scale_factor', 1.0)
+            initial_population_size = int(self.config.elite_size * scale_factor)
+            scaffold_path = self.scaffold_mol2_path
+            logger.info(f"Initializing scaffold-based population (target elite_size: {self.config.elite_size}, scale_factor: {scale_factor}x)")
         else:
-            # Initialize population
-            logger.info("Initializing population...")
-            
-            # Use consistent initialize_population method for both scaffold and standard modes
-            if self.scaffold_mode:
-                # Scaffold mode: use scaffold scale factor
-                scale_factor = self.config.scaffold_scale_factor if self.config.scaffold_scale_factor is not None else getattr(self.config, 'num_scale_factor', 1.0)
-                initial_population_size = int(self.config.elite_size * scale_factor)
-                scaffold_path = self.scaffold_mol2_path
-                logger.info(f"Initializing scaffold-based population (target elite_size: {self.config.elite_size}, scale_factor: {scale_factor}x)")
-            else:
-                # Standard mode: use default scale factor
-                scale_factor = getattr(self.config, 'num_scale_factor', 1.0)
-                initial_population_size = int(self.config.elite_size * scale_factor)
-                scaffold_path = None
-                logger.info(f"Initializing standard population (target elite_size: {self.config.elite_size}, scale_factor: {scale_factor}x)")
-            
-            self.elite_dataset = GAPopulationDataset.initialize_population(
-                model=self.model,
-                dataset_info=self.dataset_info,
-                num_samples=initial_population_size,
-                batch_size=self.config.generation_batch_size,
-                sampling_params=self.config.sampling_parameters,
-                context=self.context,
-                device=self.device,
-                model_config=self.model_config,
-                output_dir=self.config.output_dir,
-                pre_transform=self.transforms,
-                scaffold_mol2_path=scaffold_path,
-                remove_h=self.remove_h,
-                target_population_size=self.config.elite_size,
-                positioning_strategy=self.config.positioning_strategy
-            )
-            
-            final_population_size = len(self.elite_dataset.to_population_list())
-            logger.info(f"Successfully initialized population with {final_population_size} molecules")
-            self.elite_dataset.save_population(population_path)
-            elite_population = self.elite_dataset.to_population_list()
+            # Standard mode: use default scale factor
+            scale_factor = getattr(self.config, 'num_scale_factor', 1.0)
+            initial_population_size = int(self.config.elite_size * scale_factor)
+            scaffold_path = None
+            logger.info(f"Initializing standard population (target elite_size: {self.config.elite_size}, scale_factor: {scale_factor}x)")
+        
+        self.elite_dataset = GAPopulationDataset.initialize_population(
+            model=self.model,
+            dataset_info=self.dataset_info,
+            num_samples=initial_population_size,
+            batch_size=self.config.generation_batch_size,
+            sampling_params=self.config.sampling_parameters,
+            context=self.context,
+            device=self.device,
+            model_config=self.model_config,
+            output_dir=self.config.output_dir,
+            pre_transform=self.transforms,
+            scaffold_mol2_path=scaffold_path,
+            remove_h=self.remove_h,
+            target_population_size=self.config.elite_size,
+            positioning_strategy=self.config.positioning_strategy
+        )
+        
+        final_population_size = len(self.elite_dataset.to_population_list())
+        logger.info(f"Successfully initialized population with {final_population_size} molecules")
+        elite_population = self.elite_dataset.to_population_list()
         
         
         # Evaluate initial population
@@ -378,13 +375,17 @@ class GeneticTrainer(AbstractTrainer):
                 epoch, elite_population, training_metrics, epoch_time
             )
             
-        # Save checkpoint only at the end (when checkpoint_freq is -1 or at final epoch)
-        # Skip checkpointing when ga_epochs = 0 (epoch = -1)
+            # Save full checkpoint (model weights) if enabled
+            if self.config.checkpoint_freq > 0 and (epoch + 1) % self.config.checkpoint_freq == 0:
+                self._save_checkpoint(epoch, elite_population, epoch_stats)
+            
+            # Save epoch CSV files (lightweight) if enabled - independent of checkpoint
+            if self.config.save_epoch_csv_freq > 0 and (epoch + 1) % self.config.save_epoch_csv_freq == 0:
+                self._save_smile_mol2(elite_population, epoch)
+        
+        # Always save final checkpoint (for resuming or analysis)
         if self.config.ga_epochs > 0:
-            if self.config.checkpoint_freq == -1 and epoch == self.config.ga_epochs - 1:
-                self._save_checkpoint(epoch, elite_population, epoch_stats)
-            elif self.config.checkpoint_freq > 0 and (epoch + 1) % self.config.checkpoint_freq == 0:
-                self._save_checkpoint(epoch, elite_population, epoch_stats)
+            self._save_checkpoint(epoch, elite_population, epoch_stats)
         
         # Final results
         total_time = time.time() - total_start_time  # Total time from beginning of run()
@@ -580,12 +581,12 @@ class GeneticTrainer(AbstractTrainer):
                 logger.warning(f"⚠️  No valid fitness scores found in elite population for epoch {epoch + 1}")
     
     def _save_checkpoint(self, epoch: int, elite_population: List[torch_geometric.data.Data], stats: Dict[str, Any]) -> None:
-        """Save training checkpoint."""
+        """Save training checkpoint (model only - population saved separately as CSV)."""
         checkpoint_dir = self.log_dir / 'checkpoints'
         checkpoint_dir.mkdir(exist_ok=True)
         
-        # Save model checkpoint
-        model_path = checkpoint_dir / f'model_epoch_{epoch + 1}.pt'
+        # Save only model checkpoint (population is in CSV files)
+        model_path = checkpoint_dir / f'checkpoint_epoch_{epoch + 1}.pt'
         self.save_checkpoint(str(model_path), {
             'epoch': epoch,
             'elite_population_size': len(elite_population),
@@ -593,11 +594,7 @@ class GeneticTrainer(AbstractTrainer):
             'stats': stats
         })
         
-        # Save elite population
-        pop_path = checkpoint_dir / f'elite_population_epoch_{epoch + 1}.pt'
-        self.elite_dataset.save_population(str(pop_path), elite_population)
-        
-        logger.info(f"Checkpoint saved at epoch {epoch + 1}")
+        logger.info(f"Checkpoint saved: {model_path.name}")
     
     def save_checkpoint(self, filepath: str, metadata: Dict[str, Any]) -> None:
         """Save model checkpoint with metadata."""
@@ -640,14 +637,15 @@ class GeneticTrainer(AbstractTrainer):
         """Save elite population as SMILES and MOL2 files."""
         # Create output directory
         if epoch == -1:
-            # Initial population - save to ga_output/qm40_logp_qed_sa/initial
+            # Initial population - save to initial/ folder (matches where .pt file is saved)
             output_dir = os.path.join(self.config.output_dir, 'initial')
         elif epoch == 'last':
-            # Final epoch - save to ga_output/qm40_logp_qed_sa/epoch_last
+            # Final epoch - save to output_dir/epoch_last (top level, keep as before)
             output_dir = os.path.join(self.config.output_dir, 'epoch_last')
         else:
-            # Regular epochs
-            output_dir = os.path.join(self.config.output_dir, f'epoch_{epoch + 1}')
+            # Intermediate epochs - save to output_dir/epoch/epoch_{N}
+            epoch_base_dir = os.path.join(self.config.output_dir, 'epoch')
+            output_dir = os.path.join(epoch_base_dir, f'epoch_{epoch + 1}')
         os.makedirs(output_dir, exist_ok=True)
         
         # Prepare data for CSV
@@ -667,58 +665,90 @@ class GeneticTrainer(AbstractTrainer):
                     row['fitness_score'] = fitness_val
                 
                 # Add all scoring properties (logP, QED, SA, etc.)
+                # Save both normalized and raw versions for consistency with ADMET properties
                 if hasattr(self, 'molecular_scoring') and hasattr(self.molecular_scoring, '_scoring_names'):
                     for prop_name in self.molecular_scoring._scoring_names:
+                        # Add normalized value
                         if hasattr(data, prop_name):
                             prop_val = getattr(data, prop_name)
                             if hasattr(prop_val, 'item'):
                                 prop_val = prop_val.item()
                             row[prop_name] = prop_val
+                        
+                        # Add raw value if available (for display in UI)
+                        raw_prop_name = f'{prop_name}_raw'
+                        if hasattr(data, raw_prop_name):
+                            raw_val = getattr(data, raw_prop_name)
+                            if hasattr(raw_val, 'item'):
+                                raw_val = raw_val.item()
+                            row[raw_prop_name] = raw_val
+                
+                # Add ADMET properties if available
+                if hasattr(self, 'molecular_scoring') and hasattr(self.molecular_scoring, '_scoring_admet_names'):
+                    for admet_name in self.molecular_scoring._scoring_admet_names:
+                        # Add both normalized and raw ADMET values
+                        if hasattr(data, admet_name):
+                            prop_val = getattr(data, admet_name)
+                            if hasattr(prop_val, 'item'):
+                                prop_val = prop_val.item()
+                            row[admet_name] = prop_val
+                        
+                        raw_admet_name = f'{admet_name}_raw'
+                        if hasattr(data, raw_admet_name):
+                            prop_val = getattr(data, raw_admet_name)
+                            if hasattr(prop_val, 'item'):
+                                prop_val = prop_val.item()
+                            row[raw_admet_name] = prop_val
                 
                 csv_data.append(row)
         
-        # Save CSV file
+        # Save CSV file (for all epochs)
         if csv_data:
             csv_path = os.path.join(output_dir, 'elite_molecules.csv')
             df = pd.DataFrame(csv_data)
             df.to_csv(csv_path, index=False)
             logger.info(f"  - CSV: {len(csv_data)} molecules -> {csv_path}")
         
-        # Save MOL2 files
-        mol2_dir = os.path.join(output_dir, 'mol2_files')
-        os.makedirs(mol2_dir, exist_ok=True)
-        
-        scaffold_molecules = 0  # Count molecules with scaffold information
-        
-        successful_mol2 = 0
-        for i, data in enumerate(elite_population):
-            if hasattr(data, 'smiles') and data.smiles and hasattr(data, 'pos') and hasattr(data, 'atom_type'):
-                # Build molecule for MOL2 writing
-                mol = build_molecule(data.pos, data.atom_type_index, self.dataset_info)
-                if mol is not None:
-                    mol2_path = os.path.join(mol2_dir, f'elite_{i+1}.mol2')
-                    
-                    # Extract update_mask if available (for scaffold-based generation)
-                    update_mask = getattr(data, 'update_mask', None)
-                    if update_mask is not None:
-                        scaffold_molecules += 1
-                    
-                    success = write_mol2_structure(mol, data.pos, data.smiles, mol2_path, update_mask=update_mask)
-                    if success:
-                        successful_mol2 += 1
-        
-        # Determine epoch name for logging
-        if epoch == -1:
-            epoch_name = "initial"
-        elif epoch == 'last':
+        # Save MOL2 files (only for epoch_last to save space)
+        # Intermediate epochs only need CSV for ablation analysis
+        if epoch == 'last':
+            mol2_dir = os.path.join(output_dir, 'mol2_files')
+            os.makedirs(mol2_dir, exist_ok=True)
+            
+            scaffold_molecules = 0  # Count molecules with scaffold information
+            
+            successful_mol2 = 0
+            for i, data in enumerate(elite_population):
+                if hasattr(data, 'smiles') and data.smiles and hasattr(data, 'pos') and hasattr(data, 'atom_type'):
+                    # Build molecule for MOL2 writing
+                    mol = build_molecule(data.pos, data.atom_type_index, self.dataset_info)
+                    if mol is not None:
+                        mol2_path = os.path.join(mol2_dir, f'elite_{i+1}.mol2')
+                        
+                        # Extract update_mask if available (for scaffold-based generation)
+                        update_mask = getattr(data, 'update_mask', None)
+                        if update_mask is not None:
+                            scaffold_molecules += 1
+                        
+                        success = write_mol2_structure(mol, data.pos, data.smiles, mol2_path, update_mask=update_mask)
+                        if success:
+                            successful_mol2 += 1
+            
+            # Determine epoch name for logging
             epoch_name = "last"
+            
+            logger.info(f"Saved elite population files for epoch {epoch_name}:")
+            logger.info(f"  - MOL2 files: {successful_mol2}/{len(elite_population)} -> {mol2_dir}")
+            if scaffold_molecules > 0:
+                logger.info(f"  - Scaffold info: {scaffold_molecules}/{successful_mol2} MOL2 files include fixed/generated atom labels")
         else:
-            epoch_name = f"{epoch + 1}"
-        
-        logger.info(f"Saved elite population files for epoch {epoch_name}:")
-        logger.info(f"  - MOL2 files: {successful_mol2}/{len(elite_population)} -> {mol2_dir}")
-        if scaffold_molecules > 0:
-            logger.info(f"  - Scaffold info: {scaffold_molecules}/{successful_mol2} MOL2 files include fixed/generated atom labels")
+            # For intermediate epochs, just log CSV save
+            if epoch == -1:
+                epoch_name = "epoch_0"
+            else:
+                epoch_name = f"epoch_{epoch + 1}"
+            
+            logger.info(f"Saved elite population CSV for {epoch_name}")
     
     def _compile_final_results(self, final_elite: List[torch_geometric.data.Data], total_time: float) -> Dict[str, Any]:
         """Compile final results from genetic algorithm run."""
@@ -740,6 +770,10 @@ class GeneticTrainer(AbstractTrainer):
         final_pop_path = Path(self.config.output_dir) / 'final_elite_population.pt'
         self.elite_dataset.save_population(str(final_pop_path), final_elite)
         
+        # Save final population with all properties to CSV
+        csv_path = Path(self.config.output_dir) / 'final_population_properties.csv'
+        self._save_population_properties_to_csv(final_elite, csv_path)
+        
         # Save results summary to a human-readable text file
         results_path = Path(self.config.output_dir) / 'final_results.txt'
         with open(results_path, 'w') as f:
@@ -749,11 +783,44 @@ class GeneticTrainer(AbstractTrainer):
             f.write(f"Best Fitness Achieved: {self.best_fitness:.4f}\n\n")
             
             f.write("--- Final Population Statistics ---\n")
-            for key, value in final_stats.items():
-                if isinstance(value, float):
-                    f.write(f"{key.replace('_', ' ').title()}: {value:.4f}\n")
-                else:
-                    f.write(f"{key.replace('_', ' ').title()}: {value}\n")
+            # Group statistics by type for better readability
+            basic_stats = {k: v for k, v in final_stats.items() if not any(p in k for p in ['logp', 'qed', 'sa', 'tpsa', 'fitness'])}
+            fitness_stats = {k: v for k, v in final_stats.items() if 'fitness' in k}
+            property_stats = {k: v for k, v in final_stats.items() if any(p in k for p in ['logp', 'qed', 'sa', 'tpsa'])}
+            
+            if basic_stats:
+                f.write("\nBasic Statistics:\n")
+                for key, value in basic_stats.items():
+                    if isinstance(value, float):
+                        f.write(f"  {key.replace('_', ' ').title()}: {value:.4f}\n")
+                    else:
+                        f.write(f"  {key.replace('_', ' ').title()}: {value}\n")
+            
+            if fitness_stats:
+                f.write("\nFitness Statistics:\n")
+                for key, value in fitness_stats.items():
+                    if isinstance(value, float):
+                        f.write(f"  {key.replace('_', ' ').title()}: {value:.4f}\n")
+                    else:
+                        f.write(f"  {key.replace('_', ' ').title()}: {value}\n")
+            
+            if property_stats:
+                f.write("\nProperty Statistics (Normalized Scores):\n")
+                normalized_stats = {k: v for k, v in property_stats.items() if '_raw' not in k}
+                for key, value in sorted(normalized_stats.items()):
+                    if isinstance(value, float):
+                        f.write(f"  {key.replace('_', ' ').title()}: {value:.4f}\n")
+                    else:
+                        f.write(f"  {key.replace('_', ' ').title()}: {value}\n")
+                
+                f.write("\nProperty Statistics (Raw/Unnormalized Values):\n")
+                raw_stats = {k: v for k, v in property_stats.items() if '_raw' in k}
+                for key, value in sorted(raw_stats.items()):
+                    if isinstance(value, float):
+                        f.write(f"  {key.replace('_', ' ').title()}: {value:.4f}\n")
+                    else:
+                        f.write(f"  {key.replace('_', ' ').title()}: {value}\n")
+            
             f.write("\n")
 
             f.write("--- Training History Summary ---\n")
@@ -775,4 +842,52 @@ class GeneticTrainer(AbstractTrainer):
             f.write("\n")
 
         logger.info(f"Final results summary saved to {results_path}")
+        logger.info(f"Final population properties saved to {csv_path}")
         return final_results 
+    
+    def _save_population_properties_to_csv(self, population: List[torch_geometric.data.Data], csv_path: Path) -> None:
+        """Save population properties (both normalized and raw) to CSV file."""
+        import pandas as pd
+        
+        data_rows = []
+        for i, mol_data in enumerate(population):
+            row = {'molecule_id': i}
+            
+            # Add SMILES
+            if hasattr(mol_data, 'smiles'):
+                row['smiles'] = mol_data.smiles
+            
+            # Add fitness score
+            if hasattr(mol_data, 'fitness_score') and mol_data.fitness_score is not None:
+                row['fitness'] = float(mol_data.fitness_score.item()) if hasattr(mol_data.fitness_score, 'item') else float(mol_data.fitness_score)
+            
+            # Dynamically add all scoring properties (not just hardcoded logp, qed, sa, tpsa)
+            if hasattr(self, 'molecular_scoring') and hasattr(self.molecular_scoring, '_scoring_names'):
+                for prop_name in self.molecular_scoring._scoring_names:
+                    # Add normalized value
+                if hasattr(mol_data, prop_name) and getattr(mol_data, prop_name) is not None:
+                    prop_value = getattr(mol_data, prop_name)
+                    row[f'{prop_name}_normalized'] = float(prop_value.item()) if hasattr(prop_value, 'item') else float(prop_value)
+            
+                    # Add raw value
+                    raw_prop_name = f'{prop_name}_raw'
+                    if hasattr(mol_data, raw_prop_name) and getattr(mol_data, raw_prop_name) is not None:
+                        raw_value = getattr(mol_data, raw_prop_name)
+                        row[raw_prop_name] = float(raw_value.item()) if hasattr(raw_value, 'item') else float(raw_value)
+            else:
+                # Fallback to hardcoded properties if molecular_scoring not available
+            for prop_name in ['logp', 'qed', 'sa', 'tpsa']:
+                    if hasattr(mol_data, prop_name) and getattr(mol_data, prop_name) is not None:
+                        prop_value = getattr(mol_data, prop_name)
+                        row[f'{prop_name}_normalized'] = float(prop_value.item()) if hasattr(prop_value, 'item') else float(prop_value)
+                    
+                raw_prop_name = f'{prop_name}_raw'
+                if hasattr(mol_data, raw_prop_name) and getattr(mol_data, raw_prop_name) is not None:
+                    raw_value = getattr(mol_data, raw_prop_name)
+                    row[raw_prop_name] = float(raw_value.item()) if hasattr(raw_value, 'item') else float(raw_value)
+            
+            data_rows.append(row)
+        
+        df = pd.DataFrame(data_rows)
+        df.to_csv(csv_path, index=False)
+        logger.info(f"Saved {len(data_rows)} molecules' properties to {csv_path}")
