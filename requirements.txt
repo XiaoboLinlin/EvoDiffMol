@@ -1,9 +1,8 @@
 # Core Dependencies
 torch>=1.10.0
 torch-geometric>=2.0.0
-torch-scatter
-torch-sparse
-torch-cluster
+# Note: torch-scatter, torch-sparse, torch-cluster are installed separately
+# in install_pip_only.sh with --no-build-isolation flag
 
 # Scientific Computing
 numpy>=1.21.0

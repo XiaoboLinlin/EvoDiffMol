@@ -103,7 +103,7 @@ echo "Installing PyTorch..."
 pip install "torch>=1.10.0"
 
 echo ""
-echo "Installing PyTorch Geometric extensions..."
+echo "Installing PyTorch Geometric extensions (this may take a few minutes to build)..."
 pip install torch-scatter torch-sparse torch-cluster --no-build-isolation
 
 echo ""
