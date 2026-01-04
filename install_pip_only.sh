@@ -103,6 +103,10 @@ echo "Installing PyTorch..."
 pip install "torch>=1.10.0"
 
 echo ""
+echo "Installing PyTorch Geometric extensions..."
+pip install torch-scatter torch-sparse torch-cluster --no-build-isolation
+
+echo ""
 echo "Installing EvoDiffMol and remaining dependencies..."
 pip install -e .
 
