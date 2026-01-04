@@ -177,6 +177,7 @@ dist/
 # Dataset directories (too large for git - keep Python utilities only)
 datasets/*/processed/
 datasets/*/raw/
+datasets/raw/
 datasets/QM9/
 datasets/qm9/
 datasets/QM40/
