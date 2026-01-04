@@ -17,42 +17,23 @@ STANDARD_TEST_CONFIG = {
 @pytest.fixture(scope="session")
 def checkpoint_path():
     """Path to test checkpoint."""
-    # Try assets folder first (recommended for package users)
-    assets_path = "assets/checkpoints/moses_without_h_80.pt"
-    if os.path.exists(assets_path):
-        return assets_path
-    
-    # Fallback to old training logs path
-    old_path = "logs_moses/moses_without_h/moses_full_ddpm_2losses_2025_08_15__16_37_07_resume/checkpoints/80.pt"
-    if os.path.exists(old_path):
-        return old_path
-    
-    pytest.skip(f"Checkpoint not found at {assets_path} or {old_path}")
+    path = "assets/checkpoints/moses_without_h_80.pt"
+    if not os.path.exists(path):
+        pytest.skip(f"Checkpoint not found: {path}. Run: python assets/download_checkpoint.py")
+    return path
 
 
 
 @pytest.fixture(scope="session")
 def model_config_path():
     """Path to model config."""
-    # Try assets folder first
-    assets_path = "assets/configs/general_without_h.yml"
-    if os.path.exists(assets_path):
-        return assets_path
-    
-    # Fallback to configs folder
-    return "configs/general_without_h.yml"
+    return "assets/configs/general_without_h.yml"
 
 
 @pytest.fixture(scope="session")
 def ga_config_path():
     """Path to GA config."""
-    # Try assets folder first
-    assets_path = "assets/configs/moses_production.yml"
-    if os.path.exists(assets_path):
-        return assets_path
-    
-    # Fallback to ga_config folder
-    return "ga_config/moses_production.yml"
+    return "assets/configs/moses_production.yml"
 
 
 @pytest.fixture(scope="session")

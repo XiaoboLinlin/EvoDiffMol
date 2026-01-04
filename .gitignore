@@ -183,6 +183,8 @@ dist/
 # Dataset directories (too large for git - keep Python utilities only)
 datasets/*/processed/
 datasets/*/raw/
+!datasets/moses/without_h/raw/
+!datasets/moses/without_h/raw/valid.npz
 datasets/raw/
 datasets/QM9/
 datasets/qm9/
@@ -191,6 +193,7 @@ datasets/qm40/
 datasets/GEOM/
 datasets/guacamol/
 datasets/moses/
+!datasets/moses/without_h/
 datasets/.temp_scaffolds/
 datasets/scaffold_examples/
 datasets/subset/

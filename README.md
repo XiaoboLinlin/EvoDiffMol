@@ -119,10 +119,16 @@ See [ADMET documentation](evodiffmol/scoring/property_configs.py) for full list.
 
 ## 🧪 Testing
 
-Run the core API test:
+The test suite requires the MOSES dataset which is not included in the repository due to size constraints.
+
+**For Development/Research:**
+If you have the full dataset, run:
 ```bash
 pytest tests/test_admet_opt.py -v
 ```
+
+**For Package Users:**
+The core `MoleculeGenerator` API works without the test dataset. Tests are primarily for development and research purposes.
 
 ---
 
