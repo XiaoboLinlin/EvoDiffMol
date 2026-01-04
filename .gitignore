@@ -90,11 +90,10 @@ HUGGINGFACE_UPLOAD.md
 # ==============================================================================
 # TESTS - KEEP ONLY CORE API TESTS
 # ==============================================================================
-# Only keep test_admet_opt.py and conftest.py for API verification
+# Only keep test_admet_opt.py, test_scaffold.py and conftest.py for API verification
 # Exclude all other tests (research-specific)
 
 tests/test_optimization.py
-tests/test_scaffold.py
 tests/test_3d_structure.py
 tests/test_formats.py
 tests/test_api_basic.py
@@ -196,6 +195,8 @@ datasets/moses/
 !datasets/moses/without_h/
 datasets/.temp_scaffolds/
 datasets/scaffold_examples/
+!datasets/scaffold_examples/scaffold_mol2/
+!datasets/scaffold_examples/scaffold_mol2/scaffold_2.mol2
 datasets/subset/
 datasets/moses_noh_scaffold*/
 datasets/dataset_configs_output.txt
