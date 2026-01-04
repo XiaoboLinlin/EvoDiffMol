@@ -193,7 +193,7 @@ If you use EvoDiffMol in your research, please cite:
 ```bibtex
 @software{evodiffmol2024,
   title={EvoDiffMol: Molecular Generation and Optimization using Diffusion Models and Genetic Algorithms},
-  author={Xin Lin},
+  author={Xiaobo Lin},
   year={2024},
   url={https://github.com/YOUR_USERNAME/EvoDiffMol}
 }
