@@ -126,9 +126,9 @@ echo "Installing EvoDiffMol package and dependencies..."
 echo "This may take several minutes..."
 echo ""
 
-# Install torch first (required for torch-scatter build)
-echo "Installing PyTorch..."
-pip install "torch>=1.10.0"
+# Install torch and torchvision first (they must be compatible versions)
+echo "Installing PyTorch and torchvision..."
+pip install "torch==2.5.1" "torchvision==0.20.1"
 
 echo ""
 echo "Installing EvoDiffMol and remaining dependencies (except PyG extensions)..."
