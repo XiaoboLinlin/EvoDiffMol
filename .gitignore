@@ -41,7 +41,9 @@ example_unnormalized_usage.py
 
 # Shell scripts
 run_training_*.sh
-*.sh
+# Keep installation scripts
+!install_*.sh
+!upload_to_huggingface.sh
 
 # ==============================================================================
 # MANUSCRIPT & RESEARCH FILES (NOT PART OF CORE PACKAGE)

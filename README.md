@@ -1,102 +1,47 @@
-# EvoDiffMol: Evolutionary Diffusion Framework for 3D Molecular Design with Optimized Properties
+# EvoDiffMol
 
-<p align="center">
-  <img src="./github_figures/workflow.png" width="600">
-</p>
+**Molecular Generation and Optimization using Diffusion Models and Genetic Algorithms**
 
-**EvoDiffMol** is a Python package for generating 3D molecules with optimized properties using **genetic algorithms** and **diffusion models**. It combines the power of:
-- **Diffusion Models** for high-quality 3D molecular structure generation
-- **Genetic Algorithms** for multi-objective property optimization
-- **Scaffold Constraints** for drug discovery applications
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Checkpoint](https://img.shields.io/badge/🤗-Checkpoint-orange)](https://huggingface.co/scofieldlinlin/EvoDiffMol)
 
-Generate drug-like molecules optimized for multiple properties (QED, LogP, SA, TPSA) simultaneously!
+Generate and optimize drug-like molecules using diffusion models with evolutionary optimization.
 
-## 📋 Table of Contents
-- [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Examples](#-examples)
-- [Training](#-training)
-- [Testing](#-testing)
-- [Citation](#-citation)
+---
 
-## ✨ Features
+## 🚀 Quick Start
 
-- **Diffusion-based 3D molecule generation** with state-of-the-art quality
-- **Genetic algorithm optimization** for multi-property molecular design
-- **Scaffold-constrained generation** for drug discovery
-- **Easy-to-use API** with comprehensive examples
-- **Production-ready** with extensive tests
+### Installation
 
-## 🚀 Installation
-
-### Prerequisites
-
-- Python >= 3.8
-- CUDA-capable GPU (recommended)
-- Conda or virtualenv
-
-### Method 1: Install from source (Recommended)
-
+**Option 1: Conda (Recommended)**
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/EvoDiffMol.git
+git clone https://github.com/YOUR_USERNAME/EvoDiffMol.git
 cd EvoDiffMol
-
-# Create conda environment
-conda create -n evodiff python=3.10
+bash install_conda.sh
 conda activate evodiff
-
-# Install PyTorch with CUDA support (adjust for your CUDA version)
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-
-# Install PyTorch Geometric
-pip install torch-geometric torch-scatter torch-sparse torch-cluster -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
-
-# Install the package
-pip install -e .
 ```
 
-### Method 2: Install from requirements.txt
-
+**Option 2: Pip (Alternative, for users without conda/DNS issues)**
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install package in development mode
-pip install -e .
+git clone https://github.com/YOUR_USERNAME/EvoDiffMol.git
+cd EvoDiffMol
+bash install_pip_only.sh
+source evodiff_env/bin/activate
 ```
 
-### Verify Installation
-
+### Download Pre-trained Checkpoint
 ```bash
-python -c "from evodiffmol import MoleculeGenerator; print('✓ EvoDiffMol installed successfully!')"
+python assets/download_checkpoint.py
 ```
 
-## 🎯 Quick Start
+This downloads the pre-trained model (321MB) from [Hugging Face](https://huggingface.co/scofieldlinlin/EvoDiffMol).
 
-### Running Examples
+---
 
-The `examples/` folder contains ready-to-run scripts:
+## 💡 Usage
 
-```bash
-# Single property optimization (QED)
-python examples/01_single_property.py
-
-# Multi-property optimization (LogP, QED, SA)
-python examples/02_multi_property.py
-
-# Get results as DataFrame
-python examples/03_dataframe_output.py
-
-# Scaffold-constrained generation
-python examples/04_scaffold_based.py
-```
-
-**Note:** Examples use `population_size=32` and `generations=3` for fast demonstration (~2-3 minutes each).
-
-### Basic API Usage
-
+### Basic Example
 ```python
 from evodiffmol import MoleculeGenerator
 from evodiffmol.utils.datasets import General3D
@@ -106,185 +51,170 @@ dataset = General3D('moses', split='valid', remove_h=True)
 
 # Initialize generator
 gen = MoleculeGenerator(
-    checkpoint_path="path/to/checkpoint.pt",
-    model_config="configs/general_without_h.yml",
-    ga_config="ga_config/moses_production.yml",
+    checkpoint_path="assets/checkpoints/moses_without_h_80.pt",
+    model_config="assets/configs/general_without_h.yml",
+    ga_config="assets/configs/moses_production.yml",
     dataset=dataset
 )
 
-# Optimize molecules
+# Optimize molecules for target properties
 molecules = gen.optimize(
     target_properties={'qed': 0.9, 'logp': 2.5},
     population_size=100,
-    generations=20,
-    output_dir='results/optimization'
+    generations=20
 )
 
-print(f"Generated {len(molecules)} optimized molecules")
+print(f"Generated {len(molecules)} optimized molecules!")
+# molecules is a list of SMILES strings
 ```
 
-## 📚 Examples
-
-| Example | Description | Runtime |
-|---------|-------------|---------|
-| [`01_single_property.py`](examples/01_single_property.py) | Optimize for single property (QED) | ~2-3 min |
-| [`02_multi_property.py`](examples/02_multi_property.py) | Multi-property optimization | ~2-3 min |
-| [`03_dataframe_output.py`](examples/03_dataframe_output.py) | DataFrame analysis | ~2-3 min |
-| [`04_scaffold_based.py`](examples/04_scaffold_based.py) | Scaffold constraints | ~3-4 min |
-| [`05_property_exploration.py`](examples/05_property_exploration.py) | Compare targets | ~6-8 min |
-| [`06_batch_processing.py`](examples/06_batch_processing.py) | Batch workflows | ~10-12 min |
-
-See [`examples/README.md`](examples/README.md) for detailed documentation.
-
-## 📊 Available Properties
-
-| Property | Code | Range | Description |
-|----------|------|-------|-------------|
-| **QED** | `qed` | 0-1 | Drug-likeness (higher is better) |
-| **LogP** | `logp` | -2 to 6 | Lipophilicity (2-3 typical for drugs) |
-| **SA** | `sa` | 1-10 | Synthetic accessibility (lower is easier) |
-| **TPSA** | `tpsa` | 0-200 | Polar surface area (60-140 for drugs) |
-
-## 🔬 Training
-
-### Dataset Preparation
-
-#### MOSES Dataset (Recommended for drug-like molecules)
-```bash
-# Dataset will be automatically downloaded on first use
-python -c "from evodiffmol.utils.datasets import General3D; General3D('moses', 'train', remove_h=True)"
-```
-
-#### QM9 Dataset
-```bash
-cd datasets/qm9/data/prepare/
-python download.py
-```
-
-### Training from Scratch
-
-```bash
-# Train on MOSES dataset (without hydrogen)
-python train.py \
-    --config configs/general_without_h.yml \
-    --logdir logs_moses \
-    --remove_h
-
-# Train on QM9 dataset
-python train.py \
-    --config configs/qm9_full_epoch.yml \
-    --logdir logs_qm9
-```
-
-### Resume Training
-
-```bash
-python train.py \
-    --config configs/general_without_h.yml \
-    --logdir logs_moses \
-    --resume_checkpoint logs_moses/checkpoints/50.pt \
-    --resume_iter 50
-```
-
-## 🧪 Testing
-
-### Run All Tests
-
-```bash
-# Install test dependencies
-pip install pytest
-
-# Run all tests
-pytest tests/ -v
-
-# Run specific test
-pytest tests/test_api_basic.py -v
-
-# Run with coverage
-pytest tests/ --cov=evodiffmol --cov-report=html
-```
-
-### Test Categories
-
-- `test_api_basic.py` - Basic API functionality
-- `test_optimization.py` - GA optimization tests
-- `test_formats.py` - Output format tests
-- `test_scaffold.py` - Scaffold generation tests
-- `test_3d_structure.py` - 3D structure validation
-- `quick_test.py` - Quick smoke test
-
-## 📦 Package Structure
-
-```
-EvoDiffMol/
-├── evodiffmol/          # Main package
-│   ├── ga/              # Genetic algorithm components
-│   ├── models/          # Neural network models
-│   ├── scoring/         # Molecular scoring functions
-│   └── utils/           # Utilities and datasets
-├── examples/            # Usage examples
-├── tests/               # Test suite
-├── configs/             # Model configurations
-├── ga_config/           # GA configurations
-├── datasets/            # Dataset utilities
-├── train.py             # Training script
-├── setup.py             # Package installer
-└── requirements.txt     # Dependencies
-```
-
-## 🛠️ Configuration
-
-### Model Config (`configs/`)
-- `general_without_h.yml` - MOSES/GuacaMol without H
-- `qm9_full_epoch.yml` - QM9 dataset
-- `qm40_without_h.yml` - QM40 dataset
-
-### GA Config (`ga_config/`)
-- `moses_production.yml` - Production settings
-  - Population: 250
-  - Batch size: 128
-  - Generations: 15
-
-## 💡 Tips
-
-### GPU Memory Issues
+### Multi-Property Optimization
 ```python
-# Reduce batch size
+# Optimize for multiple properties simultaneously
 molecules = gen.optimize(
-    target_properties={'qed': 0.9},
-    batch_size=32,  # Lower if OOM
-    ...
+    target_properties={
+        'qed': 0.9,      # Drug-likeness
+        'logp': 2.5,     # Lipophilicity  
+        'sa': 2.0,       # Synthetic accessibility (lower is better)
+        'tpsa': 60.0     # Topological polar surface area
+    },
+    population_size=100,
+    generations=20
 )
 ```
 
-### Speed Optimization
+### ADMET Property Optimization
 ```python
-# Increase batch size (if GPU allows)
-batch_size=128
-
-# Generate fewer molecules per iteration
-num_scale_factor=1.5  # Default: 2.0
+# Optimize for ADMET properties
+molecules = gen.optimize(
+    target_properties={
+        'qed': 0.9,
+        'DILI': 0.0,           # Minimize liver toxicity
+        'CYP2D6_Veith': 0.0,   # Minimize CYP2D6 inhibition
+        'PPBR_AZ': 78.0        # Moderate protein binding
+    },
+    population_size=100,
+    generations=20
+)
 ```
-
-## 📖 Documentation
-
-- **Examples Guide:** [`examples/README.md`](examples/README.md)
-- **API Reference:** `evodiffmol/design/API_REFERENCE.md`
-- **Testing Guide:** `evodiffmol/design/TESTING_GUIDE.md`
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
-**EvoDiffMol** - Evolutionary Diffusion Framework for 3D Molecular Design 🧬✨
+## 📊 Supported Properties
 
+### Basic Properties
+- `qed` - Drug-likeness (0-1, higher is better)
+- `logp` - Lipophilicity (-2 to 6, typical drugs: 2-3)
+- `sa` - Synthetic accessibility (1-10, lower is easier)
+- `tpsa` - Polar surface area (0-200, drugs: 60-140)
+
+### ADMET Properties (40+ properties)
+- **Absorption:** Caco2, HIA, Pgp inhibition
+- **Distribution:** BBB, PPBR, VDss
+- **Metabolism:** CYP inhibition/substrate
+- **Excretion:** Clearance, half-life
+- **Toxicity:** hERG, AMES, DILI
+
+See [ADMET documentation](evodiffmol/scoring/property_configs.py) for full list.
+
+---
+
+## 🧪 Testing
+
+Run the core API test:
+```bash
+pytest tests/test_admet_opt.py -v
+```
+
+---
+
+## 📁 Repository Structure
+
+```
+EvoDiffMol/
+├── evodiffmol/              # Core package
+│   ├── generator.py         # MoleculeGenerator API
+│   ├── ga/                  # Genetic algorithm
+│   ├── models/              # Diffusion models
+│   ├── scoring/             # Property scoring
+│   └── utils/               # Utilities
+├── assets/                  # Configs and checkpoint download
+│   ├── configs/             # Model configs
+│   ├── download_checkpoint.py
+│   └── README.md
+├── tests/                   # Tests
+│   ├── conftest.py
+│   └── test_admet_opt.py
+├── install_conda.sh         # Conda installation
+├── install_pip_only.sh      # Pip installation
+├── pyproject.toml           # Package config
+└── requirements.txt         # Dependencies
+```
+
+---
+
+## 📖 How It Works
+
+1. **Diffusion Model**: Generates 3D molecular structures
+2. **Genetic Algorithm**: Evolves population toward target properties
+3. **Property Scoring**: Evaluates molecules using RDKit and TDC ADMET predictors
+4. **Optimization**: Iteratively improves population over generations
+
+---
+
+## 🔧 Advanced Usage
+
+### Using Your Own Checkpoint
+```python
+gen = MoleculeGenerator(
+    checkpoint_path="path/to/your/checkpoint.pt",
+    model_config="assets/configs/general_without_h.yml",
+    ga_config="assets/configs/moses_production.yml"
+)
+```
+
+### Scaffold-Based Generation
+```python
+# Generate molecules containing a specific scaffold
+molecules = gen.optimize(
+    target_properties={'qed': 0.9},
+    scaffold_smiles='c1ccccc1',  # Benzene ring
+    population_size=100,
+    generations=20
+)
+```
+
+---
+
+## 📝 Citation
+
+If you use EvoDiffMol in your research, please cite:
+
+```bibtex
+@software{evodiffmol2024,
+  title={EvoDiffMol: Molecular Generation and Optimization using Diffusion Models and Genetic Algorithms},
+  author={Xin Lin},
+  year={2024},
+  url={https://github.com/YOUR_USERNAME/EvoDiffMol}
+}
+```
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## 🔗 Links
+
+- 🤗 **Checkpoint:** [scofieldlinlin/EvoDiffMol](https://huggingface.co/scofieldlinlin/EvoDiffMol)
+- 📦 **GitHub:** [YOUR_USERNAME/EvoDiffMol](https://github.com/YOUR_USERNAME/EvoDiffMol)
+- 📧 **Contact:** scofieldlinlin@github
+
+---
+
+## 🙏 Acknowledgments
+
+Built on top of diffusion models for molecular generation. Special thanks to the open-source community for tools like RDKit, PyTorch, and Therapeutics Data Commons (TDC).
