@@ -99,6 +99,15 @@ echo "This may take several minutes..."
 echo ""
 
 # Install the package
+echo "Installing PyTorch first..."
+pip install torch>=1.10.0
+
+echo ""
+echo "Installing PyTorch Geometric and extensions..."
+pip install torch-geometric torch-scatter torch-sparse torch-cluster
+
+echo ""
+echo "Installing EvoDiffMol package..."
 pip install -e .
 
 echo ""
