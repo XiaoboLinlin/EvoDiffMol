@@ -865,18 +865,18 @@ class GeneticTrainer(AbstractTrainer):
             if hasattr(self, 'molecular_scoring') and hasattr(self.molecular_scoring, '_scoring_names'):
                 for prop_name in self.molecular_scoring._scoring_names:
                     # Add normalized value
-                if hasattr(mol_data, prop_name) and getattr(mol_data, prop_name) is not None:
-                    prop_value = getattr(mol_data, prop_name)
-                    row[f'{prop_name}_normalized'] = float(prop_value.item()) if hasattr(prop_value, 'item') else float(prop_value)
+                    if hasattr(mol_data, prop_name) and getattr(mol_data, prop_name) is not None:
+                        prop_value = getattr(mol_data, prop_name)
+                        row[f'{prop_name}_normalized'] = float(prop_value.item()) if hasattr(prop_value, 'item') else float(prop_value)
             
-                    # Add raw value
-                    raw_prop_name = f'{prop_name}_raw'
-                    if hasattr(mol_data, raw_prop_name) and getattr(mol_data, raw_prop_name) is not None:
-                        raw_value = getattr(mol_data, raw_prop_name)
-                        row[raw_prop_name] = float(raw_value.item()) if hasattr(raw_value, 'item') else float(raw_value)
+                        # Add raw value
+                        raw_prop_name = f'{prop_name}_raw'
+                        if hasattr(mol_data, raw_prop_name) and getattr(mol_data, raw_prop_name) is not None:
+                            raw_value = getattr(mol_data, raw_prop_name)
+                            row[raw_prop_name] = float(raw_value.item()) if hasattr(raw_value, 'item') else float(raw_value)
             else:
                 # Fallback to hardcoded properties if molecular_scoring not available
-            for prop_name in ['logp', 'qed', 'sa', 'tpsa']:
+                for prop_name in ['logp', 'qed', 'sa', 'tpsa']:
                     if hasattr(mol_data, prop_name) and getattr(mol_data, prop_name) is not None:
                         prop_value = getattr(mol_data, prop_name)
                         row[f'{prop_name}_normalized'] = float(prop_value.item()) if hasattr(prop_value, 'item') else float(prop_value)
