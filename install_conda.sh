@@ -57,7 +57,7 @@ if conda env list | grep -q "^${ENV_NAME} "; then
 fi
 
 echo "Creating conda environment '$ENV_NAME'..."
-conda create -n $ENV_NAME python=3.10 -y
+conda create -n $ENV_NAME python=3.11 -y
 
 echo ""
 echo -e "${GREEN}✓${NC} Environment created"

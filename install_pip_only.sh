@@ -39,13 +39,13 @@ fi
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
 echo "Python version: $PYTHON_VERSION"
 
-# Check if Python version is >= 3.8
+# Check if Python version is >= 3.11
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
-    echo -e "${RED}Error: Python 3.8+ is required. Found: $PYTHON_VERSION${NC}"
-    echo "Please install Python 3.8 or higher."
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+    echo -e "${RED}Error: Python 3.11+ is required. Found: $PYTHON_VERSION${NC}"
+    echo "Please install Python 3.11 or higher."
     exit 1
 fi
 
