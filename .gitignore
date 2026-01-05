@@ -42,6 +42,7 @@ example_unnormalized_usage.py
 # Shell scripts
 run_training_*.sh
 upload_to_huggingface.sh  # Local helper script with user-specific paths
+SETUP_COMPLETE.md  # Local setup documentation
 # Keep installation scripts
 !install_*.sh
 
