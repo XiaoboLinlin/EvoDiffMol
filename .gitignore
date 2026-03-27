@@ -188,6 +188,7 @@ datasets/*/raw/
 datasets/raw/
 datasets/QM9/
 datasets/qm9/
+!datasets/qm9/**/*.py
 datasets/QM40/
 datasets/qm40/
 datasets/GEOM/
